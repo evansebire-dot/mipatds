@@ -23,7 +23,7 @@
 #>
 [CmdletBinding()]
 param(
-    [string]   $OutDir     = (Join-Path $PSScriptRoot '..\app'),
+    [string]   $OutDir     = (Join-Path (Join-Path $PSScriptRoot '..') 'app'),
     [string[]] $Categories = @('car-refinishing','industry','aerosols','decorative'),
     [switch]   $IndexOnly,                 # skip PDF downloads
     [int]      $DelayMs     = 150,         # politeness delay between HTTP requests
