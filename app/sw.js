@@ -1,5 +1,5 @@
 /* Mipa Data Sheets — service worker (offline-first) */
-const SHELL_CACHE = 'mipa-shell-v2'; // bumped to ship the offline-panel CSS fix to cached installs
+const SHELL_CACHE = 'mipa-shell-v3'; // v2: offline-panel CSS fix · v3: lowercase mipa branding + icon
 const DATA_CACHE = 'mipa-data-v1';
 const PDF_CACHE = 'mipa-pdfs-v1'; // must match app.js
 

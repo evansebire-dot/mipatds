@@ -1,6 +1,6 @@
 :root {
-  --brand: #0b4f9e;
-  --brand-dark: #083a75;
+  --brand: #004F9E;       /* exact Mipa brand blue */
+  --brand-dark: #003a76;
   --bg: #f4f6f9;
   --card: #ffffff;
   --text: #14202e;
