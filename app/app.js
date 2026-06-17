@@ -262,10 +262,13 @@ function order(t) { return t === 'SDS' ? 0 : t === 'TDS' ? 1 : 2; }
 /* ---------------------------- offline ---------------------------- */
 
 function uniqueFiles(predicate) {
-  const map = new Map(); // file -> size
-  for (const p of state.products) {
+  const map = new Map(); // file -> size  (only docs actually mirrored; size is null when
+  for (const p of state.products) {        // the PDF was missing/broken on Mipa's source)
     if (predicate && !predicate(p)) continue;
-    for (const d of p.docs) if (!map.has(d.file)) map.set(d.file, d.size || 0);
+    for (const d of p.docs) {
+      if (!d.size) continue;               // no local copy to download → online-only, skip
+      if (!map.has(d.file)) map.set(d.file, d.size);
+    }
   }
   return map;
 }
@@ -339,9 +342,18 @@ async function downloadScope(files, btn, prog, bar) {
     while (queue.length) {
       const file = queue.shift();
       try {
-        if (!(await cache.match(file))) await cache.add(file);
-        state.cachedFiles.add(new URL(file, location.href).pathname);
-      } catch (_) { failed++; }
+        if (await cache.match(file)) {
+          state.cachedFiles.add(new URL(file, location.href).pathname);
+        } else {
+          const resp = await fetch(file);
+          if (resp.ok) {
+            await cache.put(file, resp);
+            state.cachedFiles.add(new URL(file, location.href).pathname);
+          } else if (resp.status !== 404) {
+            failed++;                 // real error; a 404 just means it isn't in the mirror
+          }
+        }
+      } catch (_) { failed++; }       // network error — retryable
       done++;
       bar.style.width = `${Math.round((done / files.length) * 100)}%`;
       btn.textContent = `Downloading… ${done}/${files.length}`;
@@ -349,11 +361,9 @@ async function downloadScope(files, btn, prog, bar) {
   }
   await Promise.all(Array.from({ length: CONCURRENCY }, worker));
 
-  btn.disabled = false;
-  btn.classList.toggle('done', failed === 0);
-  btn.textContent = failed ? `Retry (${failed} failed)` : '✓ Saved';
   showStorage();
-  render(); // refresh the cached dots on doc buttons
+  render();                 // refresh the cached dots on doc buttons
+  await openOfflinePanel(); // rebuild rows so the "saved" counts and button states are accurate
 }
 
 async function showStorage() {

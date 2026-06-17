@@ -1,5 +1,5 @@
 /* Mipa Data Sheets — service worker (offline-first) */
-const SHELL_CACHE = 'mipa-shell-v5'; // v2 panel fix · v3 branding · v4 dark-mode contrast · v5 install btn + version footer
+const SHELL_CACHE = 'mipa-shell-v6'; // …v5 install btn + version footer · v6 offline skips online-only sheets
 const DATA_CACHE = 'mipa-data-v1';
 const PDF_CACHE = 'mipa-pdfs-v1'; // must match app.js
 
