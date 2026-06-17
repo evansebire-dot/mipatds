@@ -3,7 +3,7 @@ name: Build & deploy Mipa Data Sheets PWA
 on:
   push:
     branches: [main]
-  workflow_dispatch:      # manual "Run workflow" button
+  workflow_dispatch:      # manual "Run workflow" button (forces a fresh scrape)
   schedule:
     - cron: '17 15 * * 1'  # weekly Mon 15:17 UTC — re-scrape to pick up new sheets
 
@@ -25,16 +25,30 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # PowerShell Core (pwsh) is preinstalled on GitHub runners.
-      - name: Crawl site + mirror PDFs into app/
-        shell: pwsh
-        run: ./scraper/Crawl-Mipa.ps1
+      # Cache the ~223 MB PDF mirror so code-only pushes don't re-download it.
+      # Key is tied to the committed index; restore-keys lets any prior mirror seed it.
+      - name: Restore PDF mirror cache
+        id: pdfcache
+        uses: actions/cache@v4
+        with:
+          path: app/pdfs
+          key: mipa-pdfs-${{ hashFiles('app/datasheets.json') }}
+          restore-keys: mipa-pdfs-
 
-      - name: Report index size
+      # Scrape when: a scheduled/manual refresh, OR a push with no cached mirror yet.
+      # A code-only push with a warm cache skips this and deploys in ~1 min.
+      # (When run, the scraper skips PDFs already restored from cache.)
+      - name: Crawl site + mirror PDFs into app/
+        if: ${{ github.event_name != 'push' || steps.pdfcache.outputs.cache-hit != 'true' }}
+        shell: pwsh
+        run: ./scraper/Crawl-Mipa.ps1 -DelayMs 50
+
+      - name: Report what will be published
         shell: pwsh
         run: |
           $j = Get-Content app/datasheets.json -Raw | ConvertFrom-Json
-          "Indexed $($j.count) products / $((Get-ChildItem app/pdfs -File).Count) PDFs"
+          $n = (Get-ChildItem app/pdfs -File -ErrorAction SilentlyContinue).Count
+          "Publishing $($j.count) products / $n mirrored PDFs (scrape ran: ${{ github.event_name != 'push' || steps.pdfcache.outputs.cache-hit != 'true' }})"
 
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3

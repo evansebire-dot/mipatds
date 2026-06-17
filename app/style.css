@@ -14,6 +14,9 @@
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+/* The hidden attribute must beat class-level display rules (.panel, .install-hint,
+   .show-more all set display), otherwise hidden=true never actually hides them. */
+[hidden] { display: none !important; }
 html, body { margin: 0; }
 body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
