@@ -1,5 +1,5 @@
 /* Mipa Data Sheets — service worker (offline-first) */
-const SHELL_CACHE = 'mipa-shell-v4'; // v2: panel fix · v3: mipa branding · v4: dark-mode text contrast
+const SHELL_CACHE = 'mipa-shell-v5'; // v2 panel fix · v3 branding · v4 dark-mode contrast · v5 install btn + version footer
 const DATA_CACHE = 'mipa-data-v1';
 const PDF_CACHE = 'mipa-pdfs-v1'; // must match app.js
 
@@ -42,8 +42,8 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Index data: network-first so it stays fresh, cache fallback when offline.
-  if (url.pathname.endsWith('datasheets.json')) {
+  // Index data + version stamp: network-first so they stay fresh, cache fallback offline.
+  if (url.pathname.endsWith('datasheets.json') || url.pathname.endsWith('version.json')) {
     event.respondWith(networkFirst(req, DATA_CACHE));
     return;
   }

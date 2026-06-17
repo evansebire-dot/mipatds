@@ -33,9 +33,25 @@ const els = {
   offlineList: $('#offlineList'),
   storageInfo: $('#storageInfo'),
   closePanel: $('#closePanel'),
-  installHint: $('#installHint'),
-  dismissInstall: $('#dismissInstall'),
+  installBtn: $('#installBtn'),
+  installPanel: $('#installPanel'),
+  closeInstall: $('#closeInstall'),
+  installSteps: $('#installSteps'),
+  appFooter: $('#appFooter'),
 };
+
+// Capture the browser's install prompt (Android/desktop Chrome) for the Install button.
+let deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  if (!isStandalone()) els.installBtn.hidden = false;
+});
+window.addEventListener('appinstalled', () => {
+  deferredPrompt = null;
+  els.installBtn.hidden = true;
+  els.installPanel.hidden = true;
+});
 
 /* ---------------------------- boot ---------------------------- */
 
@@ -57,7 +73,8 @@ async function init() {
 
   wireEvents();
   render();
-  maybeShowInstallHint();
+  setupInstall();
+  renderFooter(data);
 }
 
 function buildFuse() {
@@ -134,9 +151,11 @@ function wireEvents() {
   els.offlinePanel.addEventListener('click', (e) => {
     if (e.target === els.offlinePanel) els.offlinePanel.hidden = true;
   });
-  els.dismissInstall.addEventListener('click', () => {
-    els.installHint.hidden = true;
-    try { localStorage.setItem('installHintDismissed', '1'); } catch (_) {}
+
+  els.installBtn.addEventListener('click', onInstallClick);
+  els.closeInstall.addEventListener('click', () => (els.installPanel.hidden = true));
+  els.installPanel.addEventListener('click', (e) => {
+    if (e.target === els.installPanel) els.installPanel.hidden = true;
   });
 }
 
@@ -381,10 +400,69 @@ function registerServiceWorker() {
   }
 }
 
-function maybeShowInstallHint() {
-  const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
-  const standalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
-  let dismissed = false;
-  try { dismissed = localStorage.getItem('installHintDismissed') === '1'; } catch (_) {}
-  if (isIos && !standalone && !dismissed) els.installHint.hidden = false;
+/* ---------------------------- install ---------------------------- */
+
+function isStandalone() {
+  return window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+}
+function isIos() { return /iphone|ipad|ipod/i.test(navigator.userAgent); }
+
+function setupInstall() {
+  // Hide the button only when already running as an installed app.
+  els.installBtn.hidden = isStandalone();
+}
+
+async function onInstallClick() {
+  if (deferredPrompt) {                 // Android / desktop Chrome: native prompt
+    deferredPrompt.prompt();
+    const choice = await deferredPrompt.userChoice;
+    deferredPrompt = null;
+    if (choice && choice.outcome === 'accepted') els.installBtn.hidden = true;
+    return;
+  }
+  showInstallInstructions();            // iOS / no native prompt: step-by-step
+}
+
+function showInstallInstructions() {
+  const steps = isIos()
+    ? [
+        'Make sure you are using <b>Safari</b>.',
+        'Tap the <b>Share</b> button — the square with an up arrow.',
+        'Scroll down and tap <b>Add to Home Screen</b>.',
+        'Tap <b>Add</b>. The <b>mipa</b> icon appears on your home screen.',
+      ]
+    : [
+        'Open the browser <b>menu</b> (⋮, top-right).',
+        'Tap <b>Install app</b> (or <b>Add to Home screen</b>).',
+        'Confirm <b>Install</b>. The <b>mipa</b> icon appears on your device.',
+      ];
+  els.installSteps.innerHTML = steps.map((s) => `<li>${s}</li>`).join('');
+  els.installPanel.hidden = false;
+}
+
+/* ---------------------------- about / version footer ---------------------------- */
+
+async function renderFooter(data) {
+  const catalog = data.generatedAt ? fmtDate(data.generatedAt) : '—';
+  const count = data.count || state.products.length;
+  let ver = '', built = '';
+  try {
+    const v = await (await fetch('version.json', { cache: 'no-cache' })).json();
+    if (v.version) ver = 'v' + v.version;
+    if (v.builtAt) built = fmtDate(v.builtAt);
+  } catch (_) { /* version.json absent (e.g. local dev) — skip software line */ }
+
+  const title = ['mipa Data Sheets', ver].filter(Boolean).join(' ');
+  const bits = [];
+  if (built) bits.push('released ' + built);
+  bits.push('catalog updated ' + catalog);
+  bits.push(count + ' products');
+  els.appFooter.innerHTML =
+    `<div class="ftr-title">${esc(title)}</div><div>${esc(bits.join(' · '))}</div>`;
+}
+
+function fmtDate(s) {
+  const d = new Date(s);
+  if (isNaN(d.getTime())) return String(s);
+  return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
 }

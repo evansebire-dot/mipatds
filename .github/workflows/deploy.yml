@@ -50,6 +50,17 @@ jobs:
           $n = (Get-ChildItem app/pdfs -File -ErrorAction SilentlyContinue).Count
           "Publishing $($j.count) products / $n mirrored PDFs (scrape ran: ${{ github.event_name != 'push' || steps.pdfcache.outputs.cache-hit != 'true' }})"
 
+      - name: Stamp build version
+        shell: pwsh
+        run: |
+          $info = [ordered]@{
+            version = "1.0.${{ github.run_number }}"
+            builtAt = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+            commit  = "${{ github.sha }}".Substring(0,7)
+          }
+          $info | ConvertTo-Json | Set-Content app/version.json -Encoding UTF8
+          Get-Content app/version.json
+
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

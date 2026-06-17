@@ -17,7 +17,10 @@
   <header class="app-header">
     <div class="bar">
       <h1>mipa <span>Data Sheets</span></h1>
-      <button id="offlineBtn" class="icon-btn" title="Offline downloads" aria-label="Offline downloads">⤓</button>
+      <div class="actions">
+        <button id="installBtn" class="hdr-btn" hidden>Install</button>
+        <button id="offlineBtn" class="icon-btn" title="Offline downloads" aria-label="Offline downloads">⤓</button>
+      </div>
     </div>
     <div class="search-wrap">
       <input id="search" type="search" inputmode="search" autocomplete="off"
@@ -39,6 +42,8 @@
     <p id="empty" class="empty" hidden>No data sheets match your search.</p>
   </main>
 
+  <footer id="appFooter" class="app-footer">Loading…</footer>
+
   <!-- Offline panel -->
   <div id="offlinePanel" class="panel" hidden>
     <div class="panel-card" role="dialog" aria-modal="true" aria-labelledby="offlineTitle">
@@ -55,9 +60,16 @@
     </div>
   </div>
 
-  <div id="installHint" class="install-hint" hidden>
-    <span>Install this app: tap <b>Share → Add to Home Screen</b> for full-screen, offline use.</span>
-    <button id="dismissInstall" class="icon-btn" aria-label="Dismiss">×</button>
+  <!-- Install instructions (shown when the browser can't show a native prompt, e.g. iOS) -->
+  <div id="installPanel" class="panel" hidden>
+    <div class="panel-card" role="dialog" aria-modal="true" aria-labelledby="installTitle">
+      <div class="panel-head">
+        <h2 id="installTitle">Install this app</h2>
+        <button id="closeInstall" class="icon-btn" aria-label="Close">×</button>
+      </div>
+      <p class="muted">Add mipa Data Sheets to your home screen for full-screen, offline use.</p>
+      <ol id="installSteps" class="steps"></ol>
+    </div>
   </div>
 
   <script src="vendor/fuse.basic.min.js"></script>
