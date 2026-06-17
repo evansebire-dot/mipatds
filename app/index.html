@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b4f9e" />
+  <title>Mipa Data Sheets</title>
+  <meta name="description" content="Search Mipa technical (TDS) and safety (SDS) data sheets. Works offline." />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="app-header">
+    <div class="bar">
+      <h1>Mipa <span>Data Sheets</span></h1>
+      <button id="offlineBtn" class="icon-btn" title="Offline downloads" aria-label="Offline downloads">⤓</button>
+    </div>
+    <div class="search-wrap">
+      <input id="search" type="search" inputmode="search" autocomplete="off"
+             placeholder="Search products, e.g. clearcoat, P 99, hardener…" aria-label="Search data sheets" />
+      <button id="clearSearch" class="clear" aria-label="Clear search" hidden>×</button>
+    </div>
+    <div id="catFilter" class="chips" role="tablist" aria-label="Category filter"></div>
+    <div id="typeFilter" class="chips small" role="tablist" aria-label="Document type filter">
+      <button class="chip active" data-type="all">All docs</button>
+      <button class="chip" data-type="SDS">SDS (Safety)</button>
+      <button class="chip" data-type="TDS">TDS (Technical)</button>
+    </div>
+  </header>
+
+  <main>
+    <p id="statusLine" class="status"></p>
+    <ul id="results" class="results"></ul>
+    <button id="showMore" class="show-more" hidden>Show more results</button>
+    <p id="empty" class="empty" hidden>No data sheets match your search.</p>
+  </main>
+
+  <!-- Offline panel -->
+  <div id="offlinePanel" class="panel" hidden>
+    <div class="panel-card" role="dialog" aria-modal="true" aria-labelledby="offlineTitle">
+      <div class="panel-head">
+        <h2 id="offlineTitle">Offline downloads</h2>
+        <button id="closePanel" class="icon-btn" aria-label="Close">×</button>
+      </div>
+      <p class="muted">Download data sheets to this device so they open with no signal. Pick a
+        category or grab everything.</p>
+      <div id="offlineList" class="offline-list"></div>
+      <div class="offline-foot">
+        <span id="storageInfo" class="muted"></span>
+      </div>
+    </div>
+  </div>
+
+  <div id="installHint" class="install-hint" hidden>
+    <span>Install this app: tap <b>Share → Add to Home Screen</b> for full-screen, offline use.</span>
+    <button id="dismissInstall" class="icon-btn" aria-label="Dismiss">×</button>
+  </div>
+
+  <script src="vendor/fuse.basic.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

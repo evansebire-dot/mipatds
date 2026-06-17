@@ -1,0 +1,146 @@
+:root {
+  --brand: #0b4f9e;
+  --brand-dark: #083a75;
+  --bg: #f4f6f9;
+  --card: #ffffff;
+  --text: #14202e;
+  --muted: #5d6b7a;
+  --line: #e2e8f0;
+  --sds: #c0392b;   /* safety = red */
+  --tds: #1d7a46;   /* technical = green */
+  --other: #6b7280;
+  --radius: 14px;
+  --maxw: 760px;
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.4;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* ---------- Header ---------- */
+.app-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: var(--brand);
+  background: linear-gradient(180deg, var(--brand), var(--brand-dark));
+  color: #fff;
+  padding: calc(env(safe-area-inset-top) + 10px) 14px 10px;
+  box-shadow: 0 2px 10px rgba(0,0,0,.12);
+}
+.bar { display: flex; align-items: center; justify-content: space-between; max-width: var(--maxw); margin: 0 auto; }
+.app-header h1 { font-size: 1.15rem; font-weight: 700; margin: 0; letter-spacing: .2px; }
+.app-header h1 span { font-weight: 400; opacity: .85; }
+
+.icon-btn {
+  background: rgba(255,255,255,.16);
+  border: 0; color: #fff; font-size: 1.25rem; line-height: 1;
+  width: 38px; height: 38px; border-radius: 10px; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.icon-btn:active { background: rgba(255,255,255,.3); }
+
+.search-wrap { position: relative; max-width: var(--maxw); margin: 10px auto 0; }
+#search {
+  width: 100%; border: 0; border-radius: 12px; padding: 13px 40px 13px 14px;
+  font-size: 1rem; background: #fff; color: var(--text); outline: none;
+}
+#search:focus { box-shadow: 0 0 0 3px rgba(255,255,255,.45); }
+.clear {
+  position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+  border: 0; background: #e6e9ef; color: #444; width: 28px; height: 28px;
+  border-radius: 50%; font-size: 1.1rem; cursor: pointer;
+}
+
+.chips { display: flex; gap: 8px; overflow-x: auto; max-width: var(--maxw); margin: 10px auto 0;
+  padding-bottom: 2px; scrollbar-width: none; }
+.chips::-webkit-scrollbar { display: none; }
+.chips.small { margin-top: 8px; }
+.chip {
+  flex: 0 0 auto; border: 1px solid rgba(255,255,255,.5); background: rgba(255,255,255,.1);
+  color: #fff; padding: 6px 12px; border-radius: 999px; font-size: .82rem; cursor: pointer;
+  white-space: nowrap;
+}
+.chip.active { background: #fff; color: var(--brand-dark); border-color: #fff; font-weight: 600; }
+
+/* ---------- Results ---------- */
+main { max-width: var(--maxw); margin: 0 auto; padding: 12px 14px 40px; }
+.status { color: var(--muted); font-size: .82rem; margin: 4px 2px 10px; }
+.results { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+
+.card {
+  background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 12px 14px; box-shadow: 0 1px 2px rgba(16,30,54,.04);
+}
+.card h3 { margin: 0 0 4px; font-size: 1rem; font-weight: 600; }
+.card .meta { color: var(--muted); font-size: .78rem; margin: 0 0 10px; }
+.card .meta .dot { opacity: .5; margin: 0 5px; }
+
+.doc-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.doc {
+  display: inline-flex; align-items: center; gap: 6px; text-decoration: none;
+  border-radius: 10px; padding: 8px 12px; font-size: .85rem; font-weight: 600;
+  color: #fff; border: 0; cursor: pointer;
+}
+.doc small { font-weight: 400; opacity: .85; }
+.doc.SDS { background: var(--sds); }
+.doc.TDS { background: var(--tds); }
+.doc.Other { background: var(--other); }
+.doc .cached { font-size: .72rem; }
+
+.show-more {
+  display: block; margin: 16px auto 0; background: #fff; border: 1px solid var(--line);
+  color: var(--brand); font-weight: 600; padding: 10px 18px; border-radius: 10px; cursor: pointer;
+}
+.empty { text-align: center; color: var(--muted); margin-top: 40px; }
+
+mark { background: #fde68a; color: inherit; padding: 0 1px; border-radius: 2px; }
+
+/* ---------- Offline panel ---------- */
+.panel {
+  position: fixed; inset: 0; z-index: 50; background: rgba(8,20,38,.5);
+  display: flex; align-items: flex-end; justify-content: center;
+}
+.panel-card {
+  background: #fff; width: 100%; max-width: var(--maxw); border-radius: 18px 18px 0 0;
+  padding: 16px 16px calc(20px + env(safe-area-inset-bottom)); max-height: 85vh; overflow-y: auto;
+  animation: slideUp .2s ease;
+}
+@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+.panel-head { display: flex; align-items: center; justify-content: space-between; }
+.panel-head h2 { font-size: 1.1rem; margin: 0; }
+.panel .icon-btn { background: #eef1f5; color: #333; }
+.muted { color: var(--muted); font-size: .85rem; }
+
+.offline-list { margin: 14px 0; display: flex; flex-direction: column; gap: 10px; }
+.ol-row { border: 1px solid var(--line); border-radius: 12px; padding: 12px; }
+.ol-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.ol-name { font-weight: 600; }
+.ol-sub { color: var(--muted); font-size: .78rem; }
+.ol-btn {
+  border: 0; background: var(--brand); color: #fff; font-weight: 600; font-size: .82rem;
+  padding: 8px 14px; border-radius: 9px; cursor: pointer; white-space: nowrap;
+}
+.ol-btn.done { background: #1d7a46; }
+.ol-btn:disabled { opacity: .6; }
+.progress { height: 6px; background: #eef1f5; border-radius: 4px; margin-top: 10px; overflow: hidden; display: none; }
+.progress.show { display: block; }
+.progress > i { display: block; height: 100%; width: 0; background: var(--brand); transition: width .2s; }
+
+.install-hint {
+  position: fixed; left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom));
+  background: #14202e; color: #fff; padding: 12px 14px; border-radius: 12px; z-index: 40;
+  display: flex; align-items: center; gap: 10px; font-size: .85rem; max-width: var(--maxw);
+  margin: 0 auto; box-shadow: 0 6px 20px rgba(0,0,0,.25);
+}
+.install-hint .icon-btn { background: rgba(255,255,255,.16); }
+
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #0e151d; --card: #18222e; --text: #e8edf2; --muted: #93a1b1; --line: #27323f; }
+}

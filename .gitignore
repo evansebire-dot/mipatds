@@ -1,0 +1,14 @@
+# Mirrored PDFs are a regenerable build artifact (~300 MB) — produced by the
+# scraper / CI, not committed. Run scraper/Crawl-Mipa.ps1 to repopulate.
+app/pdfs/
+
+# Scraper run logs
+scraper/*.log
+
+# Local Claude Code settings (personal, not for the repo)
+.claude/
+
+# OS / editor noise
+Thumbs.db
+.DS_Store
+.vscode/

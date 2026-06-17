@@ -1,0 +1,18 @@
+{
+  "name": "Mipa Data Sheets",
+  "short_name": "Mipa TDS/SDS",
+  "description": "Search and view Mipa technical (TDS) and safety (SDS) data sheets. Works offline.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0b4f9e",
+  "theme_color": "#0b4f9e",
+  "lang": "en",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}
