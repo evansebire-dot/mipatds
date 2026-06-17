@@ -52,8 +52,11 @@ body {
 .search-wrap { position: relative; max-width: var(--maxw); margin: 10px auto 0; }
 #search {
   width: 100%; border: 0; border-radius: 12px; padding: 13px 40px 13px 14px;
-  font-size: 1rem; background: #fff; color: var(--text); outline: none;
+  /* fixed colours: the box is always white (on the blue header), so typed text
+     must stay dark even when the OS is in dark mode. */
+  font-size: 1rem; background: #fff; color: #14202e; outline: none;
 }
+#search::placeholder { color: #8895a3; }
 #search:focus { box-shadow: 0 0 0 3px rgba(255,255,255,.45); }
 .clear {
   position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
@@ -103,7 +106,7 @@ main { max-width: var(--maxw); margin: 0 auto; padding: 12px 14px 40px; }
 }
 .empty { text-align: center; color: var(--muted); margin-top: 40px; }
 
-mark { background: #fde68a; color: inherit; padding: 0 1px; border-radius: 2px; }
+mark { background: #fde68a; color: #14202e; padding: 0 1px; border-radius: 2px; }
 
 /* ---------- Offline panel ---------- */
 .panel {
@@ -111,7 +114,7 @@ mark { background: #fde68a; color: inherit; padding: 0 1px; border-radius: 2px; 
   display: flex; align-items: flex-end; justify-content: center;
 }
 .panel-card {
-  background: #fff; width: 100%; max-width: var(--maxw); border-radius: 18px 18px 0 0;
+  background: var(--card); color: var(--text); width: 100%; max-width: var(--maxw); border-radius: 18px 18px 0 0;
   padding: 16px 16px calc(20px + env(safe-area-inset-bottom)); max-height: 85vh; overflow-y: auto;
   animation: slideUp .2s ease;
 }
