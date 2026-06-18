@@ -473,6 +473,7 @@ function registerServiceWorker() {
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     if (refreshing || !hadController) return;
     refreshing = true;
+    try { sessionStorage.setItem('justUpdated', '1'); } catch (_) {} // toast after the reload
     window.location.reload();
   });
 
@@ -539,6 +540,14 @@ async function renderFooter(data) {
     if (v.version) ver = 'v' + v.version;
     if (v.builtAt) built = fmtDate(v.builtAt);
   } catch (_) { /* version.json absent (e.g. local dev) — skip software line */ }
+
+  // If we just auto-updated to a new service worker, let the user know.
+  try {
+    if (sessionStorage.getItem('justUpdated')) {
+      sessionStorage.removeItem('justUpdated');
+      showToast(ver ? `Updated to ${ver}` : 'App updated to the latest version');
+    }
+  } catch (_) {}
 
   const title = ['mipa Data Sheets', ver].filter(Boolean).join(' ');
   const bits = [];
