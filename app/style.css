@@ -150,6 +150,14 @@ mark { background: #fde68a; color: #14202e; padding: 0 1px; border-radius: 2px; 
 .steps li { margin-bottom: 8px; }
 .steps b { color: var(--brand); }
 
+/* transient toast (auto-update / offline-sync notices) */
+.toast {
+  position: fixed; left: 50%; transform: translateX(-50%);
+  bottom: calc(16px + env(safe-area-inset-bottom)); z-index: 60;
+  background: #14202e; color: #fff; padding: 10px 16px; border-radius: 999px;
+  font-size: .82rem; box-shadow: 0 6px 20px rgba(0,0,0,.3); max-width: 90vw; text-align: center;
+}
+
 /* about / version footer */
 .app-footer {
   max-width: var(--maxw); margin: 0 auto;

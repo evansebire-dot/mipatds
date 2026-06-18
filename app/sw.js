@@ -1,5 +1,5 @@
 /* Mipa Data Sheets — service worker (offline-first) */
-const SHELL_CACHE = 'mipa-shell-v7'; // …v6 offline skips online-only sheets · v7 TDS icon
+const SHELL_CACHE = 'mipa-shell-v8'; // …v7 TDS icon · v8 auto-update + offline auto-sync
 const DATA_CACHE = 'mipa-data-v1';
 const PDF_CACHE = 'mipa-pdfs-v1'; // must match app.js
 

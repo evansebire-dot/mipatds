@@ -75,6 +75,7 @@ async function init() {
   render();
   setupInstall();
   renderFooter(data);
+  autoSyncOffline(); // background: pull any newly-released sheets into a saved offline copy
 }
 
 function buildFuse() {
@@ -321,14 +322,15 @@ async function openOfflinePanel() {
     const btn = row.querySelector('.ol-btn');
     const prog = row.querySelector('.progress');
     const bar = row.querySelector('.progress > i');
-    btn.addEventListener('click', () => downloadScope([...files.keys()], btn, prog, bar));
+    btn.addEventListener('click', () => downloadScope([...files.keys()], btn, prog, bar, s.key));
     els.offlineList.appendChild(row);
   }
 
   showStorage();
 }
 
-async function downloadScope(files, btn, prog, bar) {
+async function downloadScope(files, btn, prog, bar, scopeKey) {
+  if (scopeKey) rememberOfflineScope(scopeKey); // keep this scope synced on future launches
   btn.disabled = true;
   btn.textContent = 'Downloading…';
   prog.classList.add('show');
@@ -375,6 +377,64 @@ async function showStorage() {
   } catch (_) {}
 }
 
+/* ----- keep a saved offline copy current ----- */
+// Remember which scopes the user downloaded; on each online launch, quietly fetch any
+// newly-released sheets in those scopes so the offline copy stays up to date by itself.
+
+function rememberOfflineScope(key) {
+  const set = new Set(getOfflineScopes());
+  set.add(key);
+  try { localStorage.setItem('offlineScopes', JSON.stringify([...set])); } catch (_) {}
+}
+function getOfflineScopes() {
+  try { return JSON.parse(localStorage.getItem('offlineScopes') || '[]'); } catch (_) { return []; }
+}
+function scopePredicate(key) {
+  return key === 'all' ? null : (p) => p.category === key;
+}
+
+async function autoSyncOffline() {
+  if (!navigator.onLine || !('caches' in window)) return;
+  const scopes = getOfflineScopes();
+  if (!scopes.length) return;                       // user never opted into offline → do nothing
+
+  await refreshCachedSet();
+  const wanted = new Set();
+  for (const key of scopes) for (const f of uniqueFiles(scopePredicate(key)).keys()) wanted.add(f);
+  const missing = [...wanted].filter((f) => !state.cachedFiles.has(new URL(f, location.href).pathname));
+  if (!missing.length) return;                      // already up to date
+
+  showToast(`Updating offline sheets… (${missing.length} new)`);
+  const cache = await caches.open(PDF_CACHE);
+  let added = 0;
+  const queue = missing.slice();
+  async function worker() {
+    while (queue.length) {
+      const file = queue.shift();
+      try {
+        const resp = await fetch(file);
+        if (resp.ok) {
+          await cache.put(file, resp);
+          state.cachedFiles.add(new URL(file, location.href).pathname);
+          added++;
+        }
+      } catch (_) { /* offline again / transient — try next launch */ }
+    }
+  }
+  await Promise.all(Array.from({ length: 4 }, worker));
+  if (added) { render(); showToast(`Offline sheets updated · +${added} new`); }
+}
+
+let toastTimer = null;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  if (!t) return;
+  t.textContent = msg;
+  t.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.hidden = true; }, 4000);
+}
+
 /* ---------------------------- helpers ---------------------------- */
 
 function fmtMB(bytes) {
@@ -403,11 +463,29 @@ function escapeRe(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
 /* ---------------------------- PWA plumbing ---------------------------- */
 
 function registerServiceWorker() {
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('sw.js').catch((e) => console.warn('SW failed', e));
-    });
-  }
+  if (!('serviceWorker' in navigator)) return;
+
+  // Auto-update: when a freshly-deployed service worker takes control, reload so the
+  // new app version is shown — no manual refresh needed. Skip the very first install
+  // (no previous controller) so first-time visitors don't get an extra reload.
+  const hadController = !!navigator.serviceWorker.controller;
+  let refreshing = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (refreshing || !hadController) return;
+    refreshing = true;
+    window.location.reload();
+  });
+
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').then((reg) => {
+      reg.update();
+      // Re-check for a new version when the app is reopened/refocused, and hourly.
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') reg.update();
+      });
+      setInterval(() => reg.update(), 60 * 60 * 1000);
+    }).catch((e) => console.warn('SW registration failed', e));
+  });
 }
 
 /* ---------------------------- install ---------------------------- */
