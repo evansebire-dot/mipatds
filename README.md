@@ -7,6 +7,9 @@ products across all four categories, tap to open the PDF, and download sheets fo
 
 Source data: <https://www.mipa.com.au/products/technical-safety-data-sheets>
 
+**Live app:** <https://evansebire-dot.github.io/mipatds/>
+**Status / full development notes:** see [DEVELOPMENT.md](DEVELOPMENT.md).
+
 ---
 
 ## How it works

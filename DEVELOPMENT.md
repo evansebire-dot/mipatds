@@ -1,0 +1,218 @@
+# mipa Data Sheets — Development & Status
+
+> Status/handoff document. Read this first when resuming work after the customer
+> feedback round. Snapshot taken: **18 Jun 2026** (last deploy), reviewed 23 Jun 2026.
+
+---
+
+## 1. What this is
+
+A mobile-first **Progressive Web App (PWA)** that lets a user search Mipa Australia's
+**technical (TDS)** and **safety (SDS)** data sheets and open the PDFs — online or
+**fully offline**. Built for phones (installable to the home screen), but works on any
+browser.
+
+| | |
+|---|---|
+| **Live app** | https://evansebire-dot.github.io/mipatds/ |
+| **Repository** | https://github.com/evansebire-dot/mipatds |
+| **GitHub account** | `evansebire-dot` (evan.sebire@gmail.com) |
+| **Hosting** | GitHub Pages, deployed by GitHub Actions |
+| **Current version** | v1.0.10 (auto-incremented per deploy) |
+| **Service worker cache** | `mipa-shell-v9` |
+| **Catalog snapshot** | 17 Jun 2026 — **718 products**, **1,240 unique PDFs** |
+| **Mirrored offline** | 1,147 PDFs (~223 MB); **~93 are online-only** (404 on Mipa's site) |
+| **Categories** | Car Refinishing, Industry, Aerosols, Decorative |
+
+---
+
+## 2. Architecture
+
+```
+BUILD TIME  (PowerShell scraper, run locally or by CI)
+  scraper/Crawl-Mipa.ps1
+    crawls Mipa's static site 3 levels deep:
+      Category page  ──prlnr*──▶  Group page  ──produkt*──▶  Product page  ──▶  PDF links
+    outputs:
+      app/datasheets.json   the search index (one entry per product, each with its docs)
+      app/pdfs/*.pdf        a same-origin MIRROR of every PDF
+                                        │  published to GitHub Pages
+                                        ▼
+RUNTIME  (the PWA on the phone — plain static files, no build step)
+  app/index.html · app.js · style.css      single-screen UI
+  vendor/fuse.basic.min.js                 fuzzy search (vendored, no CDN)
+  sw.js                                    service worker: offline cache + auto-update
+  manifest.webmanifest · icons/            installability + branding
+```
+
+### Why the PDFs are mirrored
+Mipa's PDFs live on a **different domain** (`mipa-paints.com`) that sends **no CORS
+headers**, so a browser can't fetch/cache them cross-origin. The scraper downloads
+them and serves them from **our own origin**, which makes offline caching reliable.
+~93 PDFs return 404 on Mipa's own site, so they can't be mirrored — those are flagged
+as "online-only" (see §5).
+
+### Why no build tooling
+The dev machine had **no Node.js installed**. So the whole thing is deliberately
+**zero-dependency / no-build**: a PowerShell scraper + hand-written static PWA. It runs
+anywhere, hosts anywhere, and needs nothing installed.
+
+---
+
+## 3. Repository layout
+
+```
+mipatds/
+├─ app/                          the PWA (this folder is what gets published)
+│  ├─ index.html                 markup + panels (offline, install) + footer + toast
+│  ├─ app.js                     search, filters, offline cache, install, auto-update, sync
+│  ├─ style.css                  styling (light + dark mode)
+│  ├─ sw.js                      service worker (offline cache + self-update)
+│  ├─ manifest.webmanifest       PWA manifest (name "mipa", brand colours)
+│  ├─ vendor/fuse.basic.min.js   vendored fuzzy-search lib
+│  ├─ icons/                     icon.svg, icon-192.png, icon-512.png (mipa + TDS)
+│  ├─ datasheets.json            generated search index (committed)
+│  ├─ pdfs/                      generated PDF mirror — GIT-IGNORED (~223 MB)
+│  └─ version.json               build stamp — GIT-IGNORED (written by CI)
+├─ scraper/Crawl-Mipa.ps1        the crawler / mirror builder
+├─ .github/workflows/deploy.yml  CI: scrape (when needed) + deploy to Pages
+├─ README.md                     short "what is this / how to run"
+└─ DEVELOPMENT.md                this file
+```
+
+---
+
+## 4. Features
+
+- **Fuzzy search** over product name/group/category (Fuse.js). Handles English and
+  German terms (e.g. `härter`, `reiniger`) and product codes (`P 99`).
+- **Filters**: category chips + document-type chips (All / SDS / TDS).
+- **Open PDFs**: tap a doc badge → opens the mirrored PDF (cached if downloaded). If a
+  sheet isn't mirrored, it falls back to the live Mipa link.
+- **Offline (⤓ panel)**: download **Everything** or **per-category**. Cached via the
+  Cache API; the service worker then serves PDFs cache-first.
+- **Install button** (header): native install prompt on Android/desktop; step-by-step
+  "Add to Home Screen" sheet on iOS. Hides once installed.
+- **Version/catalog footer**: shows app version + release date and the catalog's
+  last-updated date + product count.
+- **Self-update**: a newly-deployed version installs and the app reloads itself
+  automatically (no manual refresh), with an "Updated to vX" toast afterwards. Also
+  re-checks on refocus and hourly.
+- **Offline auto-sync**: the scopes a user downloaded are remembered; on each online
+  launch any **newly-released sheets** in those scopes are fetched in the background.
+- **Dark mode** supported (search text/panel pinned for contrast).
+
+---
+
+## 5. Data & scraper details
+
+- Crawl is 3 levels: category → group (`prlnr*.html`) → product (`produkt*.html`) → PDF
+  links on `mipa-paints.com`.
+- **Doc-type classification**: URL path `/sdb/` or `/usmsds/` or label "SDS/MSDS" → SDS;
+  `/pi/` or "Productinfo/TDS" → TDS; everything else → "Document". (US-format MSDS are
+  folded into SDS.)
+- **Index shape** (`datasheets.json`): `{ generatedAt, source, categories[], count,
+  products: [{ id, name, category, group, source, docs: [{ type, lang, label, file,
+  source, size }] }] }`.
+- **`size` is the key signal**: a doc with a numeric `size` was mirrored; a doc with
+  `size: null` is **online-only** (its PDF 404s on Mipa). The app uses this to exclude
+  online-only sheets from offline downloads (so there are no phantom "failures").
+- Run the scraper:
+  ```powershell
+  ./scraper/Crawl-Mipa.ps1            # full: index + mirror all PDFs (~223 MB)
+  ./scraper/Crawl-Mipa.ps1 -IndexOnly # just rebuild the index, no downloads
+  ./scraper/Crawl-Mipa.ps1 -Categories car-refinishing -MaxProducts 20  # quick test
+  ```
+
+---
+
+## 6. Deployment / CI (`.github/workflows/deploy.yml`)
+
+Triggers: **push to main**, **manual** (workflow_dispatch), **weekly cron** (Mon 15:17
+UTC). Steps:
+1. Checkout.
+2. **Restore PDF mirror cache** (`actions/cache`, keyed on `datasheets.json` hash).
+3. **Scrape** — only when it's a scheduled/manual run **or** a push with a cold cache.
+   A code-only push with a warm cache **skips scraping** and deploys in ~1 min.
+4. **Stamp `version.json`** (`1.0.<run_number>`, build time, commit).
+5. Configure Pages → upload `app/` → deploy.
+
+**Consequence to remember:** on a normal code push (warm cache) the scraper is skipped,
+so the deployed `datasheets.json` is the **committed** one (the 17 Jun local crawl). The
+catalog only refreshes from the source when a **scrape actually runs** (scheduled,
+manual, or cold cache). PDFs come from the warm cache (also the 17 Jun snapshot).
+
+### Service-worker cache versioning
+`sw.js` defines `SHELL_CACHE = 'mipa-shell-vN'`. **Bump N on any change to app shell
+files** (html/css/js/icons) so installed apps fetch the new worker and drop the stale
+shell. The `mipa-pdfs-v1` (downloaded PDFs) and `mipa-data-v1` caches are preserved
+across bumps so users don't re-download offline content.
+
+---
+
+## 7. How to make a change (resume checklist)
+
+1. **Serve locally** (service workers need http, not file://):
+   ```powershell
+   cd app; python -m http.server 8080
+   ```
+   Open http://localhost:8080. (For a full local PDF mirror, run the scraper first.)
+2. Edit files under `app/`.
+3. If you touched shell files, **bump `SHELL_CACHE`** in `app/sw.js`.
+4. Commit and push to `main` → CI deploys automatically (fast, cache-hit path).
+5. Verify live: hard-refresh the app; check the footer version bumped.
+
+> Auth for pushing: the original classic PAT was used during setup. **It should be
+> revoked** (it's broad and was shared in chat). For future pushes, either run
+> `gh auth login` in a terminal, or create a **fine-grained token** scoped to just the
+> `mipatds` repo (Contents + Workflows: read/write).
+
+---
+
+## 8. Known limitations / things to revisit
+
+- **⚠️ Weekly auto-scrape may not be firing.** As of 23 Jun 2026, every workflow run is a
+  `push`; the Mon 22 Jun scheduled run did **not** appear. GitHub frequently drops/delays
+  cron jobs scheduled near the top of the hour / peak UTC times. **Recommended fix:** move
+  the cron off-peak (e.g. `37 6 * * 1`) and confirm a `schedule` run shows up. Until then,
+  refresh the catalog with a **manual run** (Actions tab → "Run workflow"). This directly
+  affects the "new datasheets auto-download" requirement, since devices only pull sheets
+  that exist in a freshly-scraped index/mirror.
+- **Home-screen icon doesn't auto-update.** App *content* self-updates, but the launcher
+  tile icon is captured by the OS at install time — changing the icon needs a **reinstall**
+  (platform limitation, iOS & Android).
+- **~93 online-only sheets.** Those PDFs 404 on Mipa's own site, so they can't be saved
+  offline; they open via the live link when online. Will self-heal if/when Mipa fixes the
+  links and a re-scrape runs.
+- **Public hosting.** GitHub Pages is public, so the mirrored PDFs are publicly reachable.
+  Fine for public data sheets; note it if the customer wants access restricted.
+- **Icon label is "TDS"** though the app also has SDS — kept per request. Alternatives
+  (TDS/SDS, Data Sheets) are a ~1-min rebuild.
+- **Scope = the 4 mipa.com.au categories.** Externally-hosted Master Products and Rosner
+  lines are out of scope (different sites/structure).
+
+---
+
+## 9. Change log (commits, newest first)
+
+```
+d98e7ec  "Updated to vX" toast after an automatic update
+8335c04  Auto-update app + auto-sync newly released sheets
+8ee1036  Add TDS label to the app icon
+30fab74  Offline download skips sheets not in the mirror (no phantom failures)
+d517f54  In-app Install button + version/catalog footer
+cc97b34  Fix unreadable search text & panel in dark mode
+de6b1d7  Authentic lowercase mipa wordmark icon + branding (#004F9E)
+ea32efd  Bump service worker shell cache (push the panel fix to installs)
+c630183  Fix offline panel never hiding; cache PDF mirror in CI
+a725249  Fix scraper output path for Linux CI runners
+5020ed5  Initial: scraper + PWA + CI
+```
+
+---
+
+## 10. Pending — customer feedback
+
+_(Capture feedback items here on return.)_
+
+- [ ] …
