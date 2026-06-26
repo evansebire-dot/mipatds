@@ -18,8 +18,10 @@ concurrency:
 
 jobs:
   # Gate on identity: only act on the add-sheet form, and only for collaborators.
+  # Detect the form by its body structure (the template always renders these headings),
+  # so it works even if the user edits the title or the label isn't applied.
   authorize:
-    if: startsWith(github.event.issue.title, '[Add sheet]')
+    if: contains(github.event.issue.body, '### Product name') && contains(github.event.issue.body, '### PDF file')
     runs-on: ubuntu-latest
     outputs:
       ok: ${{ steps.check.outputs.ok }}
