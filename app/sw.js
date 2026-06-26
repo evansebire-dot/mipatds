@@ -1,5 +1,5 @@
 /* Mipa Data Sheets — service worker (offline-first) */
-const SHELL_CACHE = 'mipa-shell-v9'; // …v8 auto-update + offline auto-sync · v9 "updated to vX" toast
+const SHELL_CACHE = 'mipa-shell-v10'; // …v9 "updated to vX" toast · v10 manual-sheets merge
 const DATA_CACHE = 'mipa-data-v1';
 const PDF_CACHE = 'mipa-pdfs-v1'; // must match app.js
 
@@ -42,8 +42,11 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Index data + version stamp: network-first so they stay fresh, cache fallback offline.
-  if (url.pathname.endsWith('datasheets.json') || url.pathname.endsWith('version.json')) {
+  // Index data + version stamp + manual sheets: network-first so they stay fresh,
+  // cache fallback offline. (Manual PDFs sit under /manual/pdfs/ → caught by /pdfs/ above.)
+  if (url.pathname.endsWith('datasheets.json') ||
+      url.pathname.endsWith('version.json') ||
+      url.pathname.endsWith('manual/sheets.json')) {
     event.respondWith(networkFirst(req, DATA_CACHE));
     return;
   }

@@ -19,9 +19,9 @@ browser.
 | **GitHub account** | `evansebire-dot` (evan.sebire@gmail.com) |
 | **Hosting** | GitHub Pages, deployed by GitHub Actions |
 | **Current version** | v1.0.10 (auto-incremented per deploy) |
-| **Service worker cache** | `mipa-shell-v9` |
+| **Service worker cache** | `mipa-shell-v10` |
 | **Catalog snapshot** | 17 Jun 2026 — **718 products**, **1,240 unique PDFs** |
-| **Mirrored offline** | 1,147 PDFs (~223 MB); **~93 are online-only** (404 on Mipa's site) |
+| **Mirrored offline** | 1,147 PDFs (~223 MB); **95 are online-only** (404 on Mipa's site — listed in [MISSING-SHEETS.md](MISSING-SHEETS.md)) |
 | **Categories** | Car Refinishing, Industry, Aerosols, Decorative |
 
 ---
@@ -101,6 +101,9 @@ mipatds/
 - **Offline auto-sync**: the scopes a user downloaded are remembered; on each online
   launch any **newly-released sheets** in those scopes are fetched in the background.
 - **Dark mode** supported (search text/panel pinned for contrast).
+- **Manual sheets**: data sheets not published on mipa.com.au can be added under
+  `app/manual/` and are merged into the app at runtime — they survive every re-scrape.
+  See §5a.
 
 ---
 
@@ -123,6 +126,84 @@ mipatds/
   ./scraper/Crawl-Mipa.ps1 -IndexOnly # just rebuild the index, no downloads
   ./scraper/Crawl-Mipa.ps1 -Categories car-refinishing -MaxProducts 20  # quick test
   ```
+
+### Sheets that can't be mirrored (online-only)
+95 documents (17 Jun snapshot) are linked from Mipa's pages but **404 on Mipa's own
+server**, so they can't be downloaded. They're listed for the customer in
+[MISSING-SHEETS.md](MISSING-SHEETS.md) (human-readable) and `MISSING-SHEETS.csv`
+(spreadsheet). Regenerate after any re-scrape with:
+```
+python scraper/Get-MissingSheets.py   # rewrites MISSING-SHEETS.md + .csv from datasheets.json
+```
+The list is just every doc in `datasheets.json` whose `size` is `null`. Most have
+visibly broken URLs on Mipa's site (double slashes / a stray space) — Mipa would need to
+fix those at source; the app self-heals once a re-scrape finds a working file.
+
+---
+
+## 5a. Adding sheets manually (not on mipa.com.au)
+
+Some sheets the customer has are **not published on Mipa's website**. These are kept
+separate from the scraped catalog so a re-scrape never loses them:
+
+```
+app/manual/
+  sheets.json   index entries — same shape as a datasheets.json product, tagged manual:true
+  pdfs/         the committed PDF files (NOT the git-ignored app/pdfs mirror)
+```
+
+The app fetches `manual/sheets.json` at startup and **concatenates** it onto the scraped
+products (`loadManualSheets()` / `mergedCategories()` in `app.js`). Manual sheets are
+searchable, filterable, openable and offline-downloadable exactly like scraped ones (they
+carry a real `size`, so they're included in the offline panel + auto-sync).
+
+**Add one (recommended):**
+```powershell
+./scraper/Add-ManualSheet.ps1 -Pdf 'C:\path\Sheet.pdf' -Name 'Product Name' -Category 'Car Refinishing' -Type TDS
+# run again with the same -Name/-Category to stack the SDS onto the same card
+git add app/manual && git commit -m "Add manual sheet" && git push
+```
+Adding a sheet is **data only — no `SHELL_CACHE` bump needed** (the app re-fetches
+`manual/sheets.json` network-first on every launch). See `app/manual/README.md`.
+
+---
+
+## 5b. Admin "Add a sheet" form + unavailable-sheets report
+
+### Adding sheets from GitHub (no local tools)
+Collaborators can add a sheet entirely in the browser — no PowerShell, no clone:
+
+1. Repo → **Issues → New issue → "Add a data sheet (admins)"**.
+2. Fill the form, **drag the PDF into the "PDF file" box**, submit.
+3. `.github/workflows/add-sheet.yml` runs: it checks the submitter, parses the form,
+   downloads the PDF, calls `Add-ManualSheet.ps1`, commits to `app/manual/`, **redeploys
+   the site**, then comments and closes the issue.
+
+**Auth model (the important part):** GitHub Pages is static and can't authenticate users,
+so identity comes from **GitHub itself**. The workflow only applies a sheet when the issue
+author's `author_association` is `OWNER`/`MEMBER`/`COLLABORATOR`; everyone else's issue is
+auto-closed with a polite note. **You control "admins" purely by who is a repo
+collaborator** (Settings → Collaborators), or a team. No separate login to manage.
+- The form is *visible* to anyone (you can't hide an Issues form on a public repo) but only
+  *actionable* by collaborators. To also hide it, the repo would need to be private.
+- The bot's commit is pushed with `GITHUB_TOKEN`, which deliberately does **not** trigger
+  `deploy.yml` — so `add-sheet.yml` runs the Pages deploy steps itself (shares the `pages`
+  concurrency group so it can't clash with a normal deploy).
+- Form fields are parsed from the rendered issue body by label (`### Product name`, etc.) in
+  a pwsh step; the PDF is the `[name.pdf](…user-attachments…)` link GitHub inserts.
+
+### Unavailable-sheets report (in-app)
+The list of sheets that can't be downloaded (the 95) is shown **live inside the app** —
+footer link **"N sheets unavailable offline →"** opens a panel grouped by category with an
+"open online" link each and a **Download CSV** button. It's derived on the fly from every
+doc with `size == null`, so it's always current and needs no regeneration or extra files.
+The static `MISSING-SHEETS.md` / `.csv` at the repo root are a committed snapshot for
+reading on GitHub (regenerate with `python scraper/Get-MissingSheets.py`).
+
+### Versioning note
+Both workflows now stamp `version.json` as `1.0.<git commit count>` (needs
+`fetch-depth: 0`) instead of the per-workflow run number — so the footer version is
+monotonic no matter which workflow deploys (a normal push or an add-sheet run).
 
 ---
 
@@ -196,6 +277,9 @@ across bumps so users don't re-download offline content.
 ## 9. Change log (commits, newest first)
 
 ```
+(unpushed) Admin Add-a-sheet GitHub form + Action (collaborator-gated, auto-deploy)
+(unpushed) In-app "unavailable offline" report + CSV; monotonic commit-count versioning
+(unpushed) Manual-sheets support (app/manual) + MISSING-SHEETS list & generator
 d98e7ec  "Updated to vX" toast after an automatic update
 8335c04  Auto-update app + auto-sync newly released sheets
 8ee1036  Add TDS label to the app icon

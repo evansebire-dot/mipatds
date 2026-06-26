@@ -24,6 +24,8 @@ jobs:
       url: ${{ steps.deploy.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history so the version stamp can count commits
 
       # Cache the ~223 MB PDF mirror so code-only pushes don't re-download it.
       # Key is tied to the committed index; restore-keys lets any prior mirror seed it.
@@ -53,8 +55,9 @@ jobs:
       - name: Stamp build version
         shell: pwsh
         run: |
+          $count = (git rev-list --count HEAD).Trim()   # monotonic across all deploys
           $info = [ordered]@{
-            version = "1.0.${{ github.run_number }}"
+            version = "1.0.$count"
             builtAt = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
             commit  = "${{ github.sha }}".Substring(0,7)
           }

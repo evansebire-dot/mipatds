@@ -1,0 +1,179 @@
+name: Add manual data sheet
+
+# Triggered when someone opens an "[Add sheet]" issue (via the Add-a-data-sheet form).
+# Only repo collaborators' submissions are applied; everyone else's issue is closed.
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: write   # commit the new sheet
+  issues: write     # comment on / close the issue
+  pages: write      # redeploy the site
+  id-token: write
+
+concurrency:
+  group: pages       # share the deploy lock with deploy.yml
+  cancel-in-progress: false
+
+jobs:
+  # Gate on identity: only act on the add-sheet form, and only for collaborators.
+  authorize:
+    if: startsWith(github.event.issue.title, '[Add sheet]')
+    runs-on: ubuntu-latest
+    outputs:
+      ok: ${{ steps.check.outputs.ok }}
+    steps:
+      - id: check
+        env:
+          ASSOC: ${{ github.event.issue.author_association }}
+        run: |
+          if [ "$ASSOC" = "OWNER" ] || [ "$ASSOC" = "MEMBER" ] || [ "$ASSOC" = "COLLABORATOR" ]; then
+            echo "Authorized: $ASSOC"
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Not authorized: $ASSOC"
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  # Non-collaborator: politely decline and close.
+  reject:
+    needs: authorize
+    if: needs.authorize.outputs.ok != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: "Thanks for the submission. Only project collaborators can add sheets here, so this was **not** applied. If you should have access, ask the project owner to add you as a collaborator."
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number, state: "closed", state_reason: "not_planned"
+            });
+
+  # Collaborator: parse the form, fetch the PDF, add the sheet, commit, redeploy.
+  add:
+    needs: authorize
+    if: needs.authorize.outputs.ok == 'true'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Parse form, download PDF, add the sheet
+        id: add
+        shell: pwsh
+        env:
+          BODY: ${{ github.event.issue.body }}
+        run: |
+          $body = ($env:BODY -replace "`r", "")
+          function Get-Field([string]$label) {
+            $rx = [regex]::new("(?ms)^###[ \t]+" + [regex]::Escape($label) + "[ \t]*\n+(.*?)(?=\n###[ \t]|\z)")
+            $m = $rx.Match($body)
+            if (-not $m.Success) { return "" }
+            $v = $m.Groups[1].Value.Trim()
+            if ($v -eq "_No response_") { return "" }
+            return $v
+          }
+          $name     = Get-Field "Product name"
+          $category = Get-Field "Category"
+          $doctype  = Get-Field "Document type"
+          $pdfField = Get-Field "PDF file"
+          $lang     = Get-Field "Language";  if (-not $lang) { $lang = "EN" }
+          $group    = Get-Field "Group / sub-heading (optional)"; if (-not $group) { $group = "Manual additions" }
+          $source   = Get-Field "Source URL (optional)"
+
+          if (-not $name)     { throw "Missing product name." }
+          if (-not $category) { throw "Missing category." }
+          $type = if ($doctype -match "SDS") { "SDS" } elseif ($doctype -match "TDS") { "TDS" } else { "Other" }
+
+          # Pull the attached PDF link out of the 'PDF file' field: [name.pdf](url)
+          $m = [regex]::Match($pdfField, "\[([^\]]+?\.pdf)\]\((https?://[^)\s]+)\)", "IgnoreCase")
+          if ($m.Success) {
+            $fname = $m.Groups[1].Value; $url = $m.Groups[2].Value
+          } else {
+            $m2 = [regex]::Match($pdfField, "(https?://[^)\s]+\.pdf[^)\s]*)", "IgnoreCase")
+            if (-not $m2.Success) { throw "No PDF attachment found. Drag a .pdf into the 'PDF file' box and resubmit." }
+            $url = $m2.Groups[1].Value; $fname = ($url -split '/')[-1]
+          }
+          $fname = ($fname -replace '[^\w.\-]', '_')
+          $tmp = Join-Path $env:RUNNER_TEMP $fname
+          Write-Host "Downloading PDF: $url"
+          Invoke-WebRequest -Uri $url -OutFile $tmp -UseBasicParsing -TimeoutSec 90
+          if ((Get-Item $tmp).Length -lt 100) { throw "Downloaded file looks empty ($url)." }
+
+          & ./scraper/Add-ManualSheet.ps1 -Pdf $tmp -Name $name -Category $category -Group $group -Type $type -Lang $lang -SourceUrl $source
+
+          "name=$name"  | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "type=$type"  | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+
+      - name: Commit the new sheet
+        shell: pwsh
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/manual
+          git commit -m "Add manual sheet: ${{ steps.add.outputs.name }} (#${{ github.event.issue.number }})"
+          git pull --rebase origin main
+          git push
+
+      # The bot push above does NOT trigger deploy.yml (pushes by GITHUB_TOKEN don't fire
+      # `on: push`), so publish the site from here.
+      - name: Restore PDF mirror cache
+        uses: actions/cache@v4
+        with:
+          path: app/pdfs
+          key: mipa-pdfs-${{ hashFiles('app/datasheets.json') }}
+          restore-keys: mipa-pdfs-
+
+      - name: Stamp build version
+        shell: pwsh
+        run: |
+          $count = (git rev-list --count HEAD).Trim()
+          $info = [ordered]@{
+            version = "1.0.$count"
+            builtAt = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+            commit  = (git rev-parse --short HEAD)
+          }
+          $info | ConvertTo-Json | Set-Content app/version.json -Encoding UTF8
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: app
+      - id: deploy
+        uses: actions/deploy-pages@v4
+
+      - name: Comment + close issue
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: "✅ Added **${{ steps.add.outputs.name }}** (${{ steps.add.outputs.type }}) and redeployed. It will appear in the app within a minute (reopen the app to refresh)."
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number, state: "closed", state_reason: "completed"
+            });
+
+      - name: Report failure on the issue
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: "⚠️ Something went wrong applying this sheet. See the [action log](" + context.serverUrl + "/" + context.repo.owner + "/" + context.repo.repo + "/actions/runs/" + context.runId + "). You can edit the issue and reopen, or add it manually."
+            });

@@ -83,6 +83,21 @@ workflow re-scrapes the site (incl. the PDF mirror) and publishes `app/` weekly 
 on every push. Any static host works too (Netlify, Vercel, Cloudflare Pages) — just
 serve the `app/` folder after running the scraper.
 
+## For admins — adding a sheet that isn't on Mipa's site
+
+Two ways, both keep the sheet across re-scrapes (stored in `app/manual/`, never overwritten):
+
+- **From GitHub (no tools):** Issues → New issue → **"Add a data sheet (admins)"**, fill the
+  form and **drag in the PDF**. Only repo **collaborators**' submissions are applied (identity
+  comes from GitHub — manage admins under Settings → Collaborators); the rest are auto-closed.
+  The site redeploys automatically. See [DEVELOPMENT.md §5b](DEVELOPMENT.md).
+- **Locally:** `./scraper/Add-ManualSheet.ps1 -Pdf '…\Sheet.pdf' -Name '…' -Category '…' -Type TDS`,
+  then commit `app/manual`. See [app/manual/README.md](app/manual/README.md).
+
+**Sheets that can't be mirrored** (404 on Mipa's server, currently 95) are listed live in the
+app (footer → "N sheets unavailable offline") and as a snapshot in
+[MISSING-SHEETS.md](MISSING-SHEETS.md) / `.csv`.
+
 ## Notes & scope
 
 - Covers the 4 categories on `mipa.com.au`: Car refinishing, Industry, Aerosols,

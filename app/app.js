@@ -38,6 +38,11 @@ const els = {
   closeInstall: $('#closeInstall'),
   installSteps: $('#installSteps'),
   appFooter: $('#appFooter'),
+  unavailablePanel: $('#unavailablePanel'),
+  unavailableList: $('#unavailableList'),
+  unavailableCount: $('#unavailableCount'),
+  closeUnavailable: $('#closeUnavailable'),
+  unavailableCsv: $('#unavailableCsv'),
 };
 
 // Capture the browser's install prompt (Android/desktop Chrome) for the Install button.
@@ -67,8 +72,13 @@ async function init() {
   const data = await res.json();
   state.products = data.products || [];
 
+  // Merge in any manually-added sheets (products not published on mipa.com.au).
+  // These live in manual/sheets.json + manual/pdfs/ and survive every re-scrape.
+  const manual = await loadManualSheets();
+  if (manual.length) state.products = state.products.concat(manual);
+
   buildFuse();
-  buildCategoryChips(data.categories || []);
+  buildCategoryChips(mergedCategories(data.categories || [], manual));
   await refreshCachedSet();
 
   wireEvents();
@@ -76,6 +86,28 @@ async function init() {
   setupInstall();
   renderFooter(data);
   autoSyncOffline(); // background: pull any newly-released sheets into a saved offline copy
+}
+
+// Load manually-added sheets (optional file). Tolerates absence/parse errors so the
+// app still works with no manual additions. Each entry is tagged manual:true.
+async function loadManualSheets() {
+  try {
+    const res = await fetch('manual/sheets.json', { cache: 'no-cache' });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return (data.products || []).map((p) => ({ ...p, manual: true }));
+  } catch (_) {
+    return []; // no manual file, or invalid JSON — ignore quietly
+  }
+}
+
+// Category chips = scraped categories + any new category introduced by a manual sheet.
+function mergedCategories(base, manual) {
+  const out = [...base];
+  for (const p of manual) {
+    if (p.category && !out.includes(p.category)) out.push(p.category);
+  }
+  return out;
 }
 
 function buildFuse() {
@@ -157,6 +189,16 @@ function wireEvents() {
   els.closeInstall.addEventListener('click', () => (els.installPanel.hidden = true));
   els.installPanel.addEventListener('click', (e) => {
     if (e.target === els.installPanel) els.installPanel.hidden = true;
+  });
+
+  els.closeUnavailable.addEventListener('click', () => (els.unavailablePanel.hidden = true));
+  els.unavailablePanel.addEventListener('click', (e) => {
+    if (e.target === els.unavailablePanel) els.unavailablePanel.hidden = true;
+  });
+  els.unavailableCsv.addEventListener('click', downloadUnavailableCsv);
+  // footer link is injected by renderFooter(); catch its clicks here via delegation
+  els.appFooter.addEventListener('click', (e) => {
+    if (e.target.closest('#unavailLink')) openUnavailablePanel();
   });
 }
 
@@ -435,6 +477,78 @@ function showToast(msg) {
   toastTimer = setTimeout(() => { t.hidden = true; }, 4000);
 }
 
+/* ----------------- report: sheets unavailable offline ----------------- */
+// Derived live from the same index the app already has: any doc whose PDF could not be
+// mirrored (size is null → 404 on Mipa's server). Always current, no extra files.
+
+function unavailableDocs() {
+  const rows = [];
+  for (const p of state.products) {
+    for (const d of p.docs) {
+      if (d.size == null) {
+        rows.push({ category: p.category, group: p.group, name: p.name,
+                    type: d.type, lang: d.lang || '', source: d.source || '' });
+      }
+    }
+  }
+  rows.sort((a, b) =>
+    a.category.localeCompare(b.category) || a.name.localeCompare(b.name) || a.type.localeCompare(b.type));
+  return rows;
+}
+
+function openUnavailablePanel() {
+  const rows = unavailableDocs();
+  els.unavailableCount.textContent = `Currently ${rows.length}.`;
+  els.unavailableList.innerHTML = '';
+  if (!rows.length) {
+    els.unavailableList.innerHTML = '<p class="muted">Every sheet is available — nothing missing.</p>';
+    els.unavailablePanel.hidden = false;
+    return;
+  }
+  let lastCat = null;
+  const frag = document.createDocumentFragment();
+  for (const r of rows) {
+    if (r.category !== lastCat) {
+      lastCat = r.category;
+      const h = document.createElement('div');
+      h.className = 'unavail-cat';
+      h.textContent = r.category;
+      frag.appendChild(h);
+    }
+    const item = document.createElement('div');
+    item.className = 'unavail-item';
+    const tag = r.lang && r.lang !== 'EN' && r.lang !== 'GB' ? ` ${esc(r.lang)}` : '';
+    const link = r.source
+      ? `<a href="${esc(r.source)}" target="_blank" rel="noopener">open online ↗</a>`
+      : '';
+    item.innerHTML =
+      `<span class="ua-name">${esc(r.name)}</span>` +
+      `<span class="ua-meta">${esc(r.type)}${tag}${link ? ' · ' + link : ''}</span>`;
+    frag.appendChild(item);
+  }
+  els.unavailableList.appendChild(frag);
+  els.unavailablePanel.hidden = false;
+}
+
+function downloadUnavailableCsv() {
+  const rows = unavailableDocs();
+  const head = ['Category', 'Group', 'Product', 'Type', 'Lang', 'URL'];
+  const csv = [head, ...rows.map((r) => [r.category, r.group, r.name, r.type, r.lang, r.source])]
+    .map((cols) => cols.map(csvCell).join(',')).join('\r\n');
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'mipa-sheets-unavailable.csv';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+function csvCell(v) {
+  const s = String(v == null ? '' : v);
+  return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+
 /* ---------------------------- helpers ---------------------------- */
 
 function fmtMB(bytes) {
@@ -533,7 +647,7 @@ function showInstallInstructions() {
 
 async function renderFooter(data) {
   const catalog = data.generatedAt ? fmtDate(data.generatedAt) : '—';
-  const count = data.count || state.products.length;
+  const count = state.products.length; // includes any manually-added sheets
   let ver = '', built = '';
   try {
     const v = await (await fetch('version.json', { cache: 'no-cache' })).json();
@@ -554,8 +668,13 @@ async function renderFooter(data) {
   if (built) bits.push('released ' + built);
   bits.push('catalog updated ' + catalog);
   bits.push(count + ' products');
+
+  const unavailable = unavailableDocs().length;
+  const reportLink = unavailable
+    ? `<div><button id="unavailLink" class="link-btn">${unavailable} sheet${unavailable === 1 ? '' : 's'} unavailable offline →</button></div>`
+    : '';
   els.appFooter.innerHTML =
-    `<div class="ftr-title">${esc(title)}</div><div>${esc(bits.join(' · '))}</div>`;
+    `<div class="ftr-title">${esc(title)}</div><div>${esc(bits.join(' · '))}</div>${reportLink}`;
 }
 
 function fmtDate(s) {

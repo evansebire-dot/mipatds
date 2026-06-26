@@ -1,0 +1,65 @@
+name: Add a data sheet (admins)
+description: Add a TDS/SDS that isn't published on mipa.com.au. Only project collaborators' submissions are applied.
+title: "[Add sheet] "
+labels: ["add-sheet"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Add a data sheet that isn't on Mipa's website. It will be published to the app automatically.
+
+        **Only project collaborators can add sheets** — anyone else's request is closed without being applied.
+        (Ask the project owner to add you as a collaborator if you need access.)
+  - type: input
+    id: name
+    attributes:
+      label: Product name
+      placeholder: e.g. Mipa Special Clear 2K
+    validations:
+      required: true
+  - type: dropdown
+    id: category
+    attributes:
+      label: Category
+      options:
+        - Car Refinishing
+        - Industry
+        - Aerosols
+        - Decorative
+    validations:
+      required: true
+  - type: dropdown
+    id: doctype
+    attributes:
+      label: Document type
+      options:
+        - TDS (Technical)
+        - SDS (Safety)
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: pdf
+    attributes:
+      label: PDF file
+      description: Drag-and-drop the PDF here (or paste it). It uploads and appears as a link — that's what gets added.
+      placeholder: Drop the .pdf file here…
+    validations:
+      required: true
+  - type: input
+    id: lang
+    attributes:
+      label: Language
+      description: Two-letter code shown as a tag when not EN/GB.
+      value: EN
+  - type: input
+    id: group
+    attributes:
+      label: Group / sub-heading (optional)
+      placeholder: Manual additions
+  - type: input
+    id: source
+    attributes:
+      label: Source URL (optional)
+      description: A link to open online, used as a fallback if the file is ever missing.
+      placeholder: https://…

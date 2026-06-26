@@ -73,6 +73,23 @@
     </div>
   </div>
 
+  <!-- Report: sheets that aren't available for offline download (404 on Mipa's server) -->
+  <div id="unavailablePanel" class="panel" hidden>
+    <div class="panel-card" role="dialog" aria-modal="true" aria-labelledby="unavailableTitle">
+      <div class="panel-head">
+        <h2 id="unavailableTitle">Sheets unavailable offline</h2>
+        <button id="closeUnavailable" class="icon-btn" aria-label="Close">×</button>
+      </div>
+      <p class="muted">These sheets are listed by Mipa but the PDF can't be downloaded for offline
+        use — the file is missing on Mipa's server. They open via the live link when you're online.
+        <span id="unavailableCount"></span></p>
+      <div class="report-actions">
+        <button id="unavailableCsv" class="ol-btn">Download list (CSV)</button>
+      </div>
+      <div id="unavailableList" class="unavail-list"></div>
+    </div>
+  </div>
+
   <div id="toast" class="toast" hidden></div>
 
   <script src="vendor/fuse.basic.min.js"></script>
