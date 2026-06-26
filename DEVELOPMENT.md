@@ -252,13 +252,11 @@ across bumps so users don't re-download offline content.
 
 ## 8. Known limitations / things to revisit
 
-- **⚠️ Weekly auto-scrape may not be firing.** As of 23 Jun 2026, every workflow run is a
-  `push`; the Mon 22 Jun scheduled run did **not** appear. GitHub frequently drops/delays
-  cron jobs scheduled near the top of the hour / peak UTC times. **Recommended fix:** move
-  the cron off-peak (e.g. `37 6 * * 1`) and confirm a `schedule` run shows up. Until then,
-  refresh the catalog with a **manual run** (Actions tab → "Run workflow"). This directly
-  affects the "new datasheets auto-download" requirement, since devices only pull sheets
-  that exist in a freshly-scraped index/mirror.
+- **Weekly auto-scrape works, but GitHub delays the cron.** The Mon 22 Jun `schedule` run
+  *did* fire and succeed — but at **22:22 UTC, ~7h after** the `17 15 * * 1` (15:17 UTC)
+  schedule. GitHub delays/queues crons set near peak UTC times. It's functioning, just not
+  punctual; if a tighter window matters, move it off-peak (e.g. `37 6 * * 1`). You can always
+  force an immediate refresh with a **manual run** (Actions tab → "Run workflow").
 - **Home-screen icon doesn't auto-update.** App *content* self-updates, but the launcher
   tile icon is captured by the OS at install time — changing the icon needs a **reinstall**
   (platform limitation, iOS & Android).
