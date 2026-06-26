@@ -1,23 +1,4 @@
 {
-  "note": "Manually-added data sheets (not on mipa.com.au). Merged into the app at runtime; never overwritten by the scraper. Maintain with scraper/Add-ManualSheet.ps1.",
-  "products": [
-    {
-      "id": "m1",
-      "name": "TEST – delete me",
-      "category": "Aerosols",
-      "group": "Manual additions",
-      "source": "",
-      "manual": true,
-      "docs": [
-        {
-          "type": "Other",
-          "lang": "EN",
-          "label": "Other",
-          "file": "manual/pdfs/121dollars-bunnings.pdf",
-          "source": "",
-          "size": 52695
-        }
-      ]
-    }
-  ]
+  "note": "Manually-added data sheets (not on mipa.com.au). Merged into the app at runtime; never overwritten by the scraper. Maintain with scraper/Add-ManualSheet.ps1. PDFs live in app/manual/pdfs/ and are committed (unlike the scraped app/pdfs/ mirror).",
+  "products": []
 }
