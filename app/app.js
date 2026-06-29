@@ -75,6 +75,13 @@ async function init() {
   // Merge in any manually-added sheets (products not published on mipa.com.au).
   // These live in manual/sheets.json + manual/pdfs/ and survive every re-scrape.
   const manual = await loadManualSheets();
+  const overrides = await loadOverrides();
+
+  // Replace / hide: drop any scraped sheet an admin has hidden, or that a manual sheet
+  // stands in for (its `replaces` link). Fully reversible — remove the override and the
+  // online sheet reappears on the next load. Matched on the stable Mipa page link.
+  const suppress = buildSuppressSet(manual, overrides);
+  if (suppress.size) state.products = state.products.filter((p) => !isSuppressed(p, suppress));
   if (manual.length) state.products = state.products.concat(manual);
 
   buildFuse();
@@ -99,6 +106,40 @@ async function loadManualSheets() {
   } catch (_) {
     return []; // no manual file, or invalid JSON — ignore quietly
   }
+}
+
+// Admin overrides (optional file): scraped sheets to hide from the app entirely.
+// Each entry is a Mipa page link (preferred) or an exact product name. Tolerates absence.
+async function loadOverrides() {
+  try {
+    const res = await fetch('manual/overrides.json', { cache: 'no-cache' });
+    if (!res.ok) return { hidden: [] };
+    const data = await res.json();
+    const h = data.hidden;                                   // tolerate a single value not wrapped in an array
+    return { hidden: Array.isArray(h) ? h : (h ? [h] : []) };
+  } catch (_) {
+    return { hidden: [] };
+  }
+}
+
+// Normalise a key for matching: links compare regardless of http/https, a leading
+// "www." or a trailing slash; names compare case-insensitively.
+function normKey(s) {
+  return String(s == null ? '' : s).trim().toLowerCase()
+    .replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/+$/, '');
+}
+
+// Keys to suppress = every manual sheet's `replaces` link + every hidden entry.
+function buildSuppressSet(manual, overrides) {
+  const set = new Set();
+  for (const p of manual) if (p.replaces) set.add(normKey(p.replaces));
+  for (const h of (overrides.hidden || [])) if (h) set.add(normKey(h));
+  return set;
+}
+
+// A scraped product is suppressed if its page link (preferred) or its name matches.
+function isSuppressed(p, set) {
+  return set.has(normKey(p.source)) || set.has(normKey(p.name));
 }
 
 // Category chips = scraped categories + any new category introduced by a manual sheet.
@@ -256,6 +297,20 @@ function renderCard(p) {
   const meta = document.createElement('p');
   meta.className = 'meta';
   meta.innerHTML = `${esc(p.category)}<span class="dot">•</span>${esc(p.group)}`;
+  // Link to the official Mipa product page. Doubles as the stable link an admin pastes
+  // into the "replace/hide an online sheet" forms (right-click / long-press → copy link).
+  if (p.source) {
+    const dot = document.createElement('span');
+    dot.className = 'dot';
+    dot.textContent = '•';
+    const src = document.createElement('a');
+    src.className = 'src-link';
+    src.href = p.source;
+    src.target = '_blank';
+    src.rel = 'noopener';
+    src.textContent = 'Mipa page ↗';
+    meta.append(dot, src);
+  }
   li.appendChild(meta);
 
   const row = document.createElement('div');

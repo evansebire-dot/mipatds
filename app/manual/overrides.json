@@ -1,0 +1,4 @@
+{
+  "note": "Online (scraped) sheets to hide from the app. Each entry is a mipa.com.au product page link (preferred) or an exact product name. Reversible: remove an entry (or use the 'Restore' action) to bring the sheet back. Maintain via the 'Hide or restore an online sheet' issue form, or edit this file directly. Merged at runtime; never overwritten by the scraper.",
+  "hidden": []
+}

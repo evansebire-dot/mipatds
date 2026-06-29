@@ -22,6 +22,13 @@
     # Add the safety sheet for the same product onto the same card:
     ./scraper/Add-ManualSheet.ps1 -Pdf 'C:\sheets\SpecialClear_SDS.pdf' `
         -Name 'Mipa Special Clear 2K' -Category 'Car Refinishing' -Type SDS
+
+.EXAMPLE
+    # Replace an online sheet with your own PDF: the app hides the scraped sheet at the
+    # given Mipa page link and shows this one instead. Remove the entry to go back online.
+    ./scraper/Add-ManualSheet.ps1 -Pdf 'C:\sheets\NewClear_TDS.pdf' -Name 'Mipa 2K-Klarlack CPE' `
+        -Category 'Car Refinishing' -Type TDS `
+        -Replaces 'https://www.mipa.com.au/products/.../produkt100124.html'
 #>
 [CmdletBinding()]
 param(
@@ -32,7 +39,8 @@ param(
     [ValidateSet('SDS','TDS','Other')] [string] $Type = 'TDS',
     [string] $Lang     = 'EN',                             # language tag shown when not EN/GB
     [string] $Label    = '',                               # optional custom badge label
-    [string] $SourceUrl = ''                               # optional external link (fallback if file missing)
+    [string] $SourceUrl = '',                              # optional external link (fallback if file missing)
+    [string] $Replaces  = ''                               # mipa.com.au page link this sheet replaces (hides the online one)
 )
 
 $ErrorActionPreference = 'Stop'
@@ -82,20 +90,23 @@ $newDoc = [pscustomobject]@{
 $existing = $products | Where-Object { $_.name -eq $Name -and $_.category -eq $Category } | Select-Object -First 1
 if ($existing) {
     $existing.docs = @($existing.docs) + $newDoc
+    if ($Replaces) { $existing | Add-Member -NotePropertyName replaces -NotePropertyValue $Replaces -Force }
     Write-Host "Updated existing product '$Name' (+$Type)" -ForegroundColor Green
 } else {
     # next free m<N> id
     $nums = $products | ForEach-Object { if ($_.id -match '^m(\d+)$') { [int]$Matches[1] } }
     $next = 1; if ($nums) { $next = ([int]($nums | Measure-Object -Maximum).Maximum) + 1 }
-    $products += [pscustomobject]@{
+    $prod = [ordered]@{
         id       = "m$next"
         name     = $Name
         category = $Category
         group    = $Group
         source   = $SourceUrl
         manual   = $true
-        docs     = @($newDoc)
     }
+    if ($Replaces) { $prod.replaces = $Replaces }   # hide the online sheet at this link
+    $prod.docs = @($newDoc)
+    $products += [pscustomobject]$prod
     Write-Host "Added new product '$Name' as m$next ($Type)" -ForegroundColor Green
 }
 

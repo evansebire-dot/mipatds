@@ -92,10 +92,23 @@ jobs:
           $lang     = Get-Field "Language";  if (-not $lang) { $lang = "EN" }
           $group    = Get-Field "Group / sub-heading (optional)"; if (-not $group) { $group = "Manual additions" }
           $source   = Get-Field "Source URL (optional)"
+          $replace  = Get-Field "Replace an online sheet (optional)"
 
           if (-not $name)     { throw "Missing product name." }
           if (-not $category) { throw "Missing category." }
           $type = if ($doctype -match "SDS") { "SDS" } elseif ($doctype -match "TDS") { "TDS" } else { "Other" }
+
+          # If replacing an online sheet, validate the link against the scraped index so we
+          # can confirm what's being hidden (non-fatal — apply even if it doesn't match yet).
+          $replaceNote = ""
+          if ($replace) {
+            function Norm([string]$s) { ($s.Trim().ToLower() -replace '^https?://','' -replace '^www\.','' -replace '/+$','') }
+            $target = Norm $replace
+            $idx    = Get-Content app/datasheets.json -Raw | ConvertFrom-Json
+            $match  = $idx.products | Where-Object { (Norm $_.source) -eq $target } | Select-Object -First 1
+            if ($match) { $replaceNote = "and hid the online sheet **$($match.name)**" }
+            else        { $replaceNote = "(note: that link didn't match any online sheet — applied anyway)" }
+          }
 
           # Pull the attached PDF link out of the 'PDF file' field: [name.pdf](url)
           $m = [regex]::Match($pdfField, "\[([^\]]+?\.pdf)\]\((https?://[^)\s]+)\)", "IgnoreCase")
@@ -112,10 +125,11 @@ jobs:
           Invoke-WebRequest -Uri $url -OutFile $tmp -UseBasicParsing -TimeoutSec 90
           if ((Get-Item $tmp).Length -lt 100) { throw "Downloaded file looks empty ($url)." }
 
-          & ./scraper/Add-ManualSheet.ps1 -Pdf $tmp -Name $name -Category $category -Group $group -Type $type -Lang $lang -SourceUrl $source
+          & ./scraper/Add-ManualSheet.ps1 -Pdf $tmp -Name $name -Category $category -Group $group -Type $type -Lang $lang -SourceUrl $source -Replaces $replace
 
-          "name=$name"  | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-          "type=$type"  | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "name=$name"        | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "type=$type"        | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "replace=$replaceNote" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
 
       - name: Commit the new sheet
         shell: pwsh
@@ -162,7 +176,7 @@ jobs:
             await github.rest.issues.createComment({
               owner: context.repo.owner, repo: context.repo.repo,
               issue_number: context.issue.number,
-              body: "✅ Added **${{ steps.add.outputs.name }}** (${{ steps.add.outputs.type }}) and redeployed. It will appear in the app within a minute (reopen the app to refresh)."
+              body: "✅ Added **${{ steps.add.outputs.name }}** (${{ steps.add.outputs.type }}) ${{ steps.add.outputs.replace }} and redeployed. It will appear in the app within a minute (reopen the app to refresh)."
             });
             await github.rest.issues.update({
               owner: context.repo.owner, repo: context.repo.repo,

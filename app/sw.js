@@ -1,5 +1,5 @@
 /* Mipa Data Sheets — service worker (offline-first) */
-const SHELL_CACHE = 'mipa-shell-v10'; // …v9 "updated to vX" toast · v10 manual-sheets merge
+const SHELL_CACHE = 'mipa-shell-v11'; // …v10 manual-sheets merge · v11 replace/hide overrides
 const DATA_CACHE = 'mipa-data-v1';
 const PDF_CACHE = 'mipa-pdfs-v1'; // must match app.js
 
@@ -46,7 +46,8 @@ self.addEventListener('fetch', (event) => {
   // cache fallback offline. (Manual PDFs sit under /manual/pdfs/ → caught by /pdfs/ above.)
   if (url.pathname.endsWith('datasheets.json') ||
       url.pathname.endsWith('version.json') ||
-      url.pathname.endsWith('manual/sheets.json')) {
+      url.pathname.endsWith('manual/sheets.json') ||
+      url.pathname.endsWith('manual/overrides.json')) {
     event.respondWith(networkFirst(req, DATA_CACHE));
     return;
   }

@@ -1,0 +1,193 @@
+name: Hide or restore an online sheet
+
+# Triggered when someone opens a "[Hide sheet]" issue (via the Hide-or-restore form).
+# Only repo collaborators' submissions are applied; everyone else's issue is closed.
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: write   # commit the overrides change
+  issues: write     # comment on / close the issue
+  pages: write      # redeploy the site
+  id-token: write
+
+concurrency:
+  group: pages       # share the deploy lock with deploy.yml / add-sheet.yml
+  cancel-in-progress: false
+
+jobs:
+  # Gate on identity: only act on the hide-sheet form, and only for collaborators.
+  authorize:
+    if: contains(github.event.issue.body, '### Online sheet link') && contains(github.event.issue.body, '### Action')
+    runs-on: ubuntu-latest
+    outputs:
+      ok: ${{ steps.check.outputs.ok }}
+    steps:
+      - id: check
+        env:
+          ASSOC: ${{ github.event.issue.author_association }}
+        run: |
+          if [ "$ASSOC" = "OWNER" ] || [ "$ASSOC" = "MEMBER" ] || [ "$ASSOC" = "COLLABORATOR" ]; then
+            echo "Authorized: $ASSOC"
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Not authorized: $ASSOC"
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  # Non-collaborator: politely decline and close.
+  reject:
+    needs: authorize
+    if: needs.authorize.outputs.ok != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: "Thanks for the request. Only project collaborators can hide or restore sheets, so this was **not** applied. If you should have access, ask the project owner to add you as a collaborator."
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number, state: "closed", state_reason: "not_planned"
+            });
+
+  # Collaborator: parse the form, edit the overrides list, commit, redeploy.
+  apply:
+    needs: authorize
+    if: needs.authorize.outputs.ok == 'true'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply hide/restore to overrides.json
+        id: apply
+        shell: pwsh
+        env:
+          BODY: ${{ github.event.issue.body }}
+        run: |
+          $body = ($env:BODY -replace "`r", "")
+          function Get-Field([string]$label) {
+            $rx = [regex]::new("(?ms)^###[ \t]+" + [regex]::Escape($label) + "[ \t]*\n+(.*?)(?=\n###[ \t]|\z)")
+            $m = $rx.Match($body)
+            if (-not $m.Success) { return "" }
+            $v = $m.Groups[1].Value.Trim()
+            if ($v -eq "_No response_") { return "" }
+            return $v
+          }
+          function Norm([string]$s) { ($s.Trim().ToLower() -replace '^https?://','' -replace '^www\.','' -replace '/+$','') }
+
+          $action = Get-Field "Action"
+          $link   = Get-Field "Online sheet link"
+          if (-not $link) { throw "No sheet link or name provided." }
+          $target = Norm $link
+
+          $path = "app/manual/overrides.json"
+          if (Test-Path $path) { $ov = Get-Content $path -Raw | ConvertFrom-Json }
+          else                 { $ov = [pscustomobject]@{ note = ""; hidden = @() } }
+          $hidden = @(); if ($ov.hidden) { $hidden = @($ov.hidden) }
+
+          # Friendly name for the reply, resolved from the scraped index when possible.
+          $name = $link
+          try {
+            $idx = Get-Content app/datasheets.json -Raw | ConvertFrom-Json
+            $m = $idx.products | Where-Object { (Norm $_.source) -eq $target -or $_.name.Trim().ToLower() -eq $link.Trim().ToLower() } | Select-Object -First 1
+            if ($m) { $name = $m.name }
+          } catch { }
+
+          if ($action -match "Restore") {
+            $before = $hidden.Count
+            $hidden = @($hidden | Where-Object { (Norm $_) -ne $target -and $_.Trim().ToLower() -ne $link.Trim().ToLower() })
+            $changed = ($hidden.Count -ne $before)
+            $verb = "Restored"
+          } else {
+            $exists = $hidden | Where-Object { (Norm $_) -eq $target } | Select-Object -First 1
+            if (-not $exists) { $hidden = @($hidden) + $link.Trim() }
+            $changed = (-not $exists)
+            $verb = "Hid"
+          }
+
+          $out = [ordered]@{
+            note   = "Online (scraped) sheets to hide from the app. Each entry is a mipa.com.au product page link (preferred) or an exact product name. Reversible: remove an entry (or use the 'Restore' action) to bring the sheet back. Merged at runtime; never overwritten by the scraper."
+            hidden = @($hidden)
+          }
+          $out | ConvertTo-Json -Depth 5 | Set-Content $path -Encoding UTF8
+
+          "verb=$verb"       | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "name=$name"       | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "changed=$changed" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+
+      - name: Commit the change
+        shell: pwsh
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/manual/overrides.json
+          if (git status --porcelain) {
+            git commit -m "${{ steps.apply.outputs.verb }} online sheet: ${{ steps.apply.outputs.name }} (#${{ github.event.issue.number }})"
+            git pull --rebase origin main
+            git push
+          } else {
+            Write-Host "No change to overrides.json — nothing to commit."
+          }
+
+      # The bot push above does NOT trigger deploy.yml (pushes by GITHUB_TOKEN don't fire
+      # `on: push`), so publish the site from here.
+      - name: Restore PDF mirror cache
+        uses: actions/cache@v4
+        with:
+          path: app/pdfs
+          key: mipa-pdfs-${{ hashFiles('app/datasheets.json') }}
+          restore-keys: mipa-pdfs-
+
+      - name: Stamp build version
+        shell: pwsh
+        run: |
+          $count = (git rev-list --count HEAD).Trim()
+          $info = [ordered]@{
+            version = "1.0.$count"
+            builtAt = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+            commit  = (git rev-parse --short HEAD)
+          }
+          $info | ConvertTo-Json | Set-Content app/version.json -Encoding UTF8
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: app
+      - id: deploy
+        uses: actions/deploy-pages@v4
+
+      - name: Comment + close issue
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: "✅ ${{ steps.apply.outputs.verb }} **${{ steps.apply.outputs.name }}** and redeployed. The change shows in the app within a minute (reopen the app to refresh)."
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number, state: "closed", state_reason: "completed"
+            });
+
+      - name: Report failure on the issue
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: "⚠️ Something went wrong applying this. See the [action log](" + context.serverUrl + "/" + context.repo.owner + "/" + context.repo.repo + "/actions/runs/" + context.runId + "). You can edit the issue and reopen, or edit `app/manual/overrides.json` directly."
+            });

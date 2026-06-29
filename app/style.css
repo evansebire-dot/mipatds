@@ -93,6 +93,8 @@ main { max-width: var(--maxw); margin: 0 auto; padding: 12px 14px 40px; }
 .card h3 { margin: 0 0 4px; font-size: 1rem; font-weight: 600; }
 .card .meta { color: var(--muted); font-size: .78rem; margin: 0 0 10px; }
 .card .meta .dot { opacity: .5; margin: 0 5px; }
+.card .meta .src-link { color: var(--muted); text-decoration: none; opacity: .85; white-space: nowrap; }
+.card .meta .src-link:hover { text-decoration: underline; opacity: 1; }
 
 .doc-row { display: flex; flex-wrap: wrap; gap: 8px; }
 .doc {

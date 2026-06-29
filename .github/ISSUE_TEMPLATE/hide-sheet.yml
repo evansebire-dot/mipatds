@@ -1,0 +1,38 @@
+name: Hide or restore an online sheet (admins)
+description: Hide an online (scraped) sheet from the app, or restore one you hid earlier. Only project collaborators' requests are applied.
+title: "[Hide sheet] "
+labels: ["hide-sheet"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Hide an existing **online** (scraped) sheet from the app — it disappears from search and
+        the menus — or **restore** one you hid before. This does not delete anything; it's fully
+        reversible.
+
+        **Only project collaborators can do this** — anyone else's request is closed without being
+        applied. (Ask the project owner to add you as a collaborator if you need access.)
+  - type: dropdown
+    id: action
+    attributes:
+      label: Action
+      options:
+        - Hide it
+        - Restore it (un-hide)
+    validations:
+      required: true
+  - type: input
+    id: link
+    attributes:
+      label: Online sheet link
+      description: >-
+        Paste the sheet's mipa.com.au page link. (Find it in the app: open the sheet's card →
+        "Mipa page ↗" → copy link.) An exact product name also works.
+      placeholder: https://www.mipa.com.au/products/…/produkt100124.html
+    validations:
+      required: true
+  - type: input
+    id: reason
+    attributes:
+      label: Reason (optional)
+      placeholder: e.g. superseded / wrong document / replaced by a manual sheet

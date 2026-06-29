@@ -19,7 +19,7 @@ browser.
 | **GitHub account** | `evansebire-dot` (evan.sebire@gmail.com) |
 | **Hosting** | GitHub Pages, deployed by GitHub Actions |
 | **Current version** | v1.0.10 (auto-incremented per deploy) |
-| **Service worker cache** | `mipa-shell-v10` |
+| **Service worker cache** | `mipa-shell-v11` |
 | **Catalog snapshot** | 17 Jun 2026 — **718 products**, **1,240 unique PDFs** |
 | **Mirrored offline** | 1,147 PDFs (~223 MB); **95 are online-only** (404 on Mipa's site — listed in [MISSING-SHEETS.md](MISSING-SHEETS.md)) |
 | **Categories** | Car Refinishing, Industry, Aerosols, Decorative |
@@ -201,9 +201,36 @@ The static `MISSING-SHEETS.md` / `.csv` at the repo root are a committed snapsho
 reading on GitHub (regenerate with `python scraper/Get-MissingSheets.py`).
 
 ### Versioning note
-Both workflows now stamp `version.json` as `1.0.<git commit count>` (needs
+All deploy workflows stamp `version.json` as `1.0.<git commit count>` (needs
 `fetch-depth: 0`) instead of the per-workflow run number — so the footer version is
-monotonic no matter which workflow deploys (a normal push or an add-sheet run).
+monotonic no matter which workflow deploys (a normal push, an add-sheet, or a hide run).
+
+---
+
+## 5c. Replacing / hiding an online (scraped) sheet
+
+Admins can override the scraped catalog in ways the weekly re-scrape won't undo:
+
+- **Replace** — a manual sheet may carry a `"replaces": "<mipa page url>"`. At runtime the
+  app hides the scraped product at that link and shows the manual one in its place. Set via
+  the add-sheet form's *"Replace an online sheet (optional)"* field (→ `Add-ManualSheet.ps1
+  -Replaces`). Revert by deleting the manual sheet — the online one reappears by itself.
+- **Hide** — `app/manual/overrides.json` holds `"hidden": [ … ]`, a list of page links (or
+  exact product names). Maintained via the **"Hide or restore an online sheet (admins)"**
+  form → `.github/workflows/hide-sheet.yml` (same collaborator gate + inline Pages deploy as
+  add-sheet; edits the file, commits, redeploys). Revert with the form's *Restore* action or
+  by removing the line.
+
+**Runtime (`app.js`):** `loadOverrides()` + `buildSuppressSet()` build a Set of normalised
+keys from every manual `replaces` and every `hidden` entry; scraped products whose `source`
+(preferred) or `name` matches are filtered out *before* the manual sheets are concatenated.
+`normKey()` makes link matching tolerant of http/https, a leading `www.`, and trailing
+slashes. **Key on the page URL (`source`), never the `id`** — scraped ids are a
+re-scrape-unstable counter (`p<N>`). Each card exposes a `.src-link` "Mipa page ↗" so an
+admin can copy that stable link to paste into the forms.
+
+`overrides.json` is fetched network-first by the SW (added to its match list); `SHELL_CACHE`
+bumped to `mipa-shell-v11`.
 
 ---
 

@@ -85,7 +85,10 @@ serve the `app/` folder after running the scraper.
 
 ## For admins — adding a sheet that isn't on Mipa's site
 
-Two ways, both keep the sheet across re-scrapes (stored in `app/manual/`, never overwritten):
+New to maintaining this app? Start with the short, non-technical **[Admin guide (ADMIN.md)](ADMIN.md)** —
+how the app works, and how to add **and remove** sheets from the GitHub website (no tools).
+
+Two ways to add, both keep the sheet across re-scrapes (stored in `app/manual/`, never overwritten):
 
 - **From GitHub (no tools):** Issues → New issue → **"Add a data sheet (admins)"**, fill the
   form and **drag in the PDF**. Only repo **collaborators**' submissions are applied (identity
@@ -93,6 +96,12 @@ Two ways, both keep the sheet across re-scrapes (stored in `app/manual/`, never 
   The site redeploys automatically. See [DEVELOPMENT.md §5b](DEVELOPMENT.md).
 - **Locally:** `./scraper/Add-ManualSheet.ps1 -Pdf '…\Sheet.pdf' -Name '…' -Category '…' -Type TDS`,
   then commit `app/manual`. See [app/manual/README.md](app/manual/README.md).
+
+**Replace or hide an online sheet:** to swap one of Mipa's own sheets for your PDF, paste that
+sheet's page link into the add-sheet form's *"Replace an online sheet"* field; to hide one
+outright, use the **"Hide or restore an online sheet (admins)"** form. Both are reversible (stored
+as overrides in `app/manual/`). Grab a sheet's link from its card in the app (**"Mipa page ↗"**).
+See [ADMIN.md](ADMIN.md#replacing-or-hiding-an-online-sheet).
 
 **Sheets that can't be mirrored** (404 on Mipa's server, currently 95) are listed live in the
 app (footer → "N sheets unavailable offline") and as a snapshot in

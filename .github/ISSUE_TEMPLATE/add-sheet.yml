@@ -63,3 +63,12 @@ body:
       label: Source URL (optional)
       description: A link to open online, used as a fallback if the file is ever missing.
       placeholder: https://…
+  - type: input
+    id: replace
+    attributes:
+      label: Replace an online sheet (optional)
+      description: >-
+        To hide an existing online sheet and show this PDF in its place, paste that sheet's
+        mipa.com.au page link. (Find it in the app: open the sheet's card → "Mipa page ↗" →
+        copy link.) Leave blank to just add a new sheet. Reversible later.
+      placeholder: https://www.mipa.com.au/products/…/produkt100124.html
