@@ -1,5 +1,5 @@
 /* Mipa Data Sheets — service worker (offline-first) */
-const SHELL_CACHE = 'mipa-shell-v12'; // …v11 replace/hide overrides · v12 optional usage analytics
+const SHELL_CACHE = 'mipa-shell-v13'; // …v12 optional usage analytics · v13 footer privacy note
 const DATA_CACHE = 'mipa-data-v1';
 const PDF_CACHE = 'mipa-pdfs-v1'; // must match app.js
 

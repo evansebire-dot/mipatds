@@ -167,6 +167,7 @@ mark { background: #fde68a; color: #14202e; padding: 0 1px; border-radius: 2px; 
   text-align: center; color: var(--muted); font-size: .74rem; line-height: 1.7;
 }
 .app-footer .ftr-title { font-weight: 600; color: var(--text); opacity: .8; }
+.app-footer .ftr-note { opacity: .6; font-size: .68rem; margin-top: 5px; }
 .link-btn {
   background: none; border: 0; color: var(--brand); font: inherit; font-size: .74rem;
   cursor: pointer; padding: 6px 4px 0; text-decoration: underline;

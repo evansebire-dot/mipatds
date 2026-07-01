@@ -19,7 +19,7 @@ browser.
 | **GitHub account** | `evansebire-dot` (evan.sebire@gmail.com) |
 | **Hosting** | GitHub Pages, deployed by GitHub Actions |
 | **Current version** | v1.0.10 (auto-incremented per deploy) |
-| **Service worker cache** | `mipa-shell-v12` |
+| **Service worker cache** | `mipa-shell-v13` |
 | **Catalog snapshot** | 17 Jun 2026 — **718 products**, **1,240 unique PDFs** |
 | **Mirrored offline** | 1,147 PDFs (~223 MB); **95 are online-only** (404 on Mipa's site — listed in [MISSING-SHEETS.md](MISSING-SHEETS.md)) |
 | **Categories** | Car Refinishing, Industry, Aerosols, Decorative |
@@ -247,9 +247,11 @@ code to enable. When set, `loadAnalytics()` injects the GoatCounter script
 
 Privacy: no cookies, no personal data, no email — anonymous counts only, so no consent banner.
 The script is cross-origin, so the SW's fetch handler ignores it. `track()` is fully guarded
-(no-op when off/unloaded, never throws). Enabling changes shell files, so `SHELL_CACHE` was
-bumped to `mipa-shell-v12`. Browsers expose no user identity, so capturing installer **emails**
-is not possible without an explicit opt-in form or a login wall (deliberately not built).
+(no-op when off/unloaded, never throws). When enabled, `renderFooter()` shows a `.ftr-note`
+transparency line ("Anonymous usage stats only — no cookies, no personal data."); it's hidden
+when `ANALYTICS_CODE` is empty. Browsers expose no user identity, so capturing installer
+**emails** is not possible without an explicit opt-in form or a login wall (not built).
+Enabled live as `mipatds` (dashboard: <https://mipatds.goatcounter.com>).
 
 ---
 

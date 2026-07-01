@@ -766,8 +766,12 @@ async function renderFooter(data) {
   const reportLink = unavailable
     ? `<div><button id="unavailLink" class="link-btn">${unavailable} sheet${unavailable === 1 ? '' : 's'} unavailable offline →</button></div>`
     : '';
+  // Transparency note — only shown when anonymous analytics is actually enabled.
+  const privacyNote = ANALYTICS_CODE
+    ? `<div class="ftr-note">Anonymous usage stats only — no cookies, no personal data.</div>`
+    : '';
   els.appFooter.innerHTML =
-    `<div class="ftr-title">${esc(title)}</div><div>${esc(bits.join(' · '))}</div>${reportLink}`;
+    `<div class="ftr-title">${esc(title)}</div><div>${esc(bits.join(' · '))}</div>${reportLink}${privacyNote}`;
 }
 
 function fmtDate(s) {
