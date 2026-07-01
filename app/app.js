@@ -8,6 +8,12 @@
 const PDF_CACHE = 'mipa-pdfs-v1';        // must match sw.js
 const PAGE_SIZE = 60;                    // results rendered per "page"
 
+// Optional, privacy-friendly usage counts (opens / installs / active installed users).
+// Set this to your GoatCounter site code (e.g. 'mipatds' for https://mipatds.goatcounter.com)
+// to switch analytics ON. Leave '' to keep it fully OFF — no script is loaded and nothing is
+// sent. Anonymous only: GoatCounter uses no cookies and stores no personal data (no emails).
+const ANALYTICS_CODE = 'mipatds';
+
 const state = {
   products: [],
   fuse: null,
@@ -56,6 +62,7 @@ window.addEventListener('appinstalled', () => {
   deferredPrompt = null;
   els.installBtn.hidden = true;
   els.installPanel.hidden = true;
+  track('app-installed', 'App installed');   // Android/desktop only (iOS fires no install event)
 });
 
 /* ---------------------------- boot ---------------------------- */
@@ -67,6 +74,7 @@ init().catch((err) => {
 
 async function init() {
   registerServiceWorker();
+  loadAnalytics();
 
   const res = await fetch('datasheets.json', { cache: 'no-cache' });
   const data = await res.json();
@@ -656,6 +664,36 @@ function registerServiceWorker() {
       setInterval(() => reg.update(), 60 * 60 * 1000);
     }).catch((e) => console.warn('SW registration failed', e));
   });
+}
+
+/* ---------------------------- usage analytics (optional, anonymous) ---------------------------- */
+// Privacy-first counts via GoatCounter: no cookies, no personal data, no consent banner needed.
+// Completely inert unless ANALYTICS_CODE is set. The script is cross-origin, so the service
+// worker ignores it (its fetch handler returns early for other origins). What gets counted:
+//   • page open          — GoatCounter logs this automatically on load  ("opens")
+//   • run-standalone     — every launch from an installed icon           ("active installs", all OSes)
+//   • app-installed      — the browser's install event                   (Android/desktop only)
+
+function loadAnalytics() {
+  if (!ANALYTICS_CODE) return;                       // analytics off → load nothing, send nothing
+  window.goatcounter = window.goatcounter || {};
+  const s = document.createElement('script');
+  s.async = true;
+  s.src = 'https://gc.zgo.at/count.js';
+  s.setAttribute('data-goatcounter', `https://${ANALYTICS_CODE}.goatcounter.com/count`);
+  s.addEventListener('load', () => {                 // once loaded, log installed-app launches
+    if (isStandalone()) track('run-standalone', 'Launched as installed app');
+  });
+  document.head.appendChild(s);
+}
+
+// Record a named event. No-op when analytics is off or not yet loaded; never throws.
+function track(path, title) {
+  try {
+    if (ANALYTICS_CODE && window.goatcounter && window.goatcounter.count) {
+      window.goatcounter.count({ path, title: title || path, event: true });
+    }
+  } catch (_) { /* analytics must never break the app */ }
 }
 
 /* ---------------------------- install ---------------------------- */

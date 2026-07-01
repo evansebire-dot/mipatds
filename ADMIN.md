@@ -188,6 +188,33 @@ if Mipa removes a sheet, the next scrape drops it automatically.
 
 ---
 
+## Seeing how many people use it (usage stats)
+
+By default the app collects **nothing** — no analytics, no accounts — so there's no way to
+know how many people use or installed it. You can switch on **anonymous** usage counts in
+about two minutes:
+
+1. Create a free account at **goatcounter.com** and pick a code (e.g. `mipatds`); that gives
+   you a dashboard at `https://mipatds.goatcounter.com`.
+2. In `app/app.js` set `const ANALYTICS_CODE = 'mipatds';` (your code) and commit — or just
+   send me the code and I'll set it. The app redeploys and starts counting.
+
+What the dashboard then shows:
+
+- **Opens** — each time the app is opened.
+- **Active installs** (`run-standalone`) — launches from an installed home-screen icon. This is
+  the best "how many people installed it" number because it works on **iPhone too**.
+- **Installs** (`app-installed`) — the browser's install event (Android/desktop only; iPhone
+  doesn't send one).
+- Rough **country** and trends over time.
+
+**What it does *not* collect:** no names, no **emails**, no cookies, no cross-site tracking —
+only counts (which is why no "accept cookies" banner is needed). A browser can't hand a website
+a visitor's email, so you can only ever see *how many*, never *who*. To turn it back off, set
+`ANALYTICS_CODE` to `''`.
+
+---
+
 ## Quick reference
 
 | I want to…                                  | Do this                                                                 |
@@ -201,5 +228,6 @@ if Mipa removes a sheet, the next scrape drops it automatically.
 | Un-hide a sheet I hid                       | Same form → *Restore it*, or remove the line from `overrides.json`      |
 | Get a sheet's link                          | In the app, on its card tap **"Mipa page ↗"** → copy link               |
 | Decide who can add/hide sheets              | Repo **Settings → Collaborators**                                       |
+| See how many people use / installed it      | Turn on anonymous stats — set `ANALYTICS_CODE` in `app/app.js` (2 min)  |
 | See sheets that can't be downloaded offline | App footer → *"N sheets unavailable offline"*, or `MISSING-SHEETS.md`   |
 | Pick up new sheets Mipa just published      | Nothing — the weekly scrape does it (or run **Actions → Run workflow**) |
